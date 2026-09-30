@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolkit"
+version = "0.2.0"
+description = "Reusable engineering components: document layout, hybrid ranking, entity resolution, durable execution."
+readme = "toolkit/README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+# Everything below is optional on purpose. The base install is standard library
+# only, and each adapter raises MissingDependency naming the extra it needs.
+[project.optional-dependencies]
+docs = ["pdfplumber>=0.11", "docling>=2.0"]
+llm = ["litellm>=1.50"]
+embed = ["fastembed>=0.4"]
+store = ["lancedb>=0.13", "bm25s>=0.2"]
+rerank = ["sentence-transformers>=3.0"]
+eval = ["ragas>=0.2", "deepeval>=1.0"]
+web = ["crawl4ai>=0.4"]
+audio = ["faster-whisper>=1.0"]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
+all = [
+    "pdfplumber>=0.11",
+    "docling>=2.0",
+    "litellm>=1.50",
+    "fastembed>=0.4",
+    "lancedb>=0.13",
+    "bm25s>=0.2",
+]
+
+[tool.setuptools.packages.find]
+include = ["toolkit*"]
+exclude = ["toolkit.tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["toolkit/tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 95
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    # zip(..., strict=) is deliberately not used everywhere. Several zips pair a
+    # vector against another of possibly different length and are *meant* to
+    # truncate (cosine similarity over mismatched dimensions); the places where
+    # a length mismatch is a bug validate it explicitly and raise a clear error.
+    "B905",
+    # Percent formatting is used in a few places to build byte strings and
+    # zero-padded ids, where f-strings are not clearer.
+    "UP031",
+]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false
+# Optional backends are absent in a bare install, and adapters reach into
+# untyped vendor SDKs by design. The contracts, algorithms and pipelines are
+# fully checked; `mypy toolkit --exclude 'toolkit/tests'` is clean.
+exclude = "toolkit/tests"

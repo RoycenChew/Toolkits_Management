@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime artefacts the toolkit creates
+*.db
+*.db-wal
+*.db-shm
+.lancedb/
+baseline.json
+report.json
+
+# Secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

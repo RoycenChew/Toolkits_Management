@@ -1,0 +1,1 @@
+# Pure standard library. Pydantic is optional (ExtractionSchema.from_pydantic).
