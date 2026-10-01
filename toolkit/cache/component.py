@@ -126,10 +126,17 @@ class CachedEmbedder:
     def dimension(self) -> int:
         return self._embedder.dimension
 
+    @property
+    def model_version(self) -> str:
+        """Delegated, never synthesised. A cache that reported its own identity
+        would hide the wrapped model's, which is the thing that matters."""
+        return str(getattr(self._embedder, "model_version", self._model))
+
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
-        keys = [make_key("embed", self._model, self.dimension, text) for text in texts]
+        version = self.model_version
+        keys = [make_key("embed", version, self.dimension, text) for text in texts]
         results: list[list[float] | None] = []
         pending: list[int] = []
 

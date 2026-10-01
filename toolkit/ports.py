@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
+from .core.limits import ScreeningLimits, ScreeningResult
 from .core.models import Chunk, Completion, Document, Message, SearchHit
 
 
@@ -35,6 +36,17 @@ class DocumentSource(Protocol):
         extension or magic bytes; never opens a model to decide."""
         ...
 
+    def screen(self, path: str, limits: ScreeningLimits) -> ScreeningResult:
+        """Is this safe to parse? Called before `load`, always.
+
+        Parsers run on whatever file they are given. Without a cap, a
+        decompression bomb or a 40,000-page PDF takes the process down, and
+        catching the exception does not save you from an OOM kill. A screening
+        failure is **poison, not retryable** — retrying a bomb is a second
+        outage.
+        """
+        ...
+
 
 @runtime_checkable
 class Embedder(Protocol):
@@ -47,6 +59,18 @@ class Embedder(Protocol):
 
     @property
     def dimension(self) -> int: ...
+
+    @property
+    def model_version(self) -> str:
+        """Stable identity of whatever produced the vectors.
+
+        Required, not optional. Dimension alone is not identity: swapping
+        bge-small for a different model of the same size produces vectors that a
+        store will happily accept, a search will happily return, and whose
+        quality has silently collapsed with no error anywhere. The version
+        string is what makes that detectable.
+        """
+        ...
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
 
@@ -83,6 +107,23 @@ class VectorStore(Protocol):
 
     def count(self) -> int: ...
 
+    def delete(self, chunk_ids: Sequence[str]) -> int: ...
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int:
+        """Remove a document's rows. Returns how many were deleted.
+
+        `keep=None` deletes everything for the document — the retention and
+        right-to-erasure path.
+
+        `keep=[...]` deletes everything *except* those ids, which is the orphan
+        sweep. Chunk ids are `doc_id#index` slots, so re-ingesting a document
+        that now produces five chunks where it previously produced eight leaves
+        slots #5..#7 behind: stale content, still retrievable, still citable.
+        One method covers both jobs because they are the same query with a
+        different exclusion set.
+        """
+        ...
+
 
 @runtime_checkable
 class LexicalIndex(Protocol):
@@ -98,6 +139,10 @@ class LexicalIndex(Protocol):
     def search(self, query: str, top_k: int = 10) -> list[SearchHit]: ...
 
     def count(self) -> int: ...
+
+    def delete(self, chunk_ids: Sequence[str]) -> int: ...
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int: ...
 
 
 @runtime_checkable

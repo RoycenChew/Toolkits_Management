@@ -25,23 +25,54 @@ Scale: **1** absent · **2** prototype · **3** solid library · **4** productio
 | **Honesty of documentation** | **5** | Every component documents its own limitations, and the measurements that killed a bad design are in the docstrings. Rare at any scale. |
 | **Testability** | **4** | Deterministic stdlib fakes for every port. Offline, reproducible, no API key. |
 | **API design** | **3.5** | One `execute()` per component, clean dataclasses. But no versioning policy, no deprecation path, no stability guarantees. |
-| **Security** | **1.5** | **The weakest dimension.** No prompt-injection defense, no limits on untrusted parsing, no PII handling, no authz on retrieval. Detail below. |
+| **Security** | **2.5** | **The weakest dimension.** No prompt-injection defense, no limits on untrusted parsing, no PII handling, no authz on retrieval. Detail below. |
 | **Observability** | **1** | No structured logging, no traces, no metrics, no correlation IDs. You cannot answer "why was this run slow" or "what did we spend". |
-| **Data governance** | **1** | **No delete path at all.** You cannot remove a document from the index. Retention, erasure, lineage, audit: absent. |
+| **Data governance** | **2.5** | Delete path, `forget()` and supersede-on-re-ingest now exist (see *Resolved* below). Retention policy, lineage and audit remain absent. |
 | **Multi-tenancy** | **1** | No tenant scoping anywhere. One shared index, one shared budget. |
 | **Horizontal scale** | **2** | Sequential across documents; in-memory chunk mirror; per-process governor state; sync-only. Fine to ~10⁴ chunks on one box. |
 | **Reliability / ops** | **2.5** | `durable_steps` is genuinely good but single-machine. No DLQ, no circuit breaker, no health checks, no config validation at startup. |
 | **Release engineering** | **2** | CI exists (and is well-designed). No changelog, no published package, no release process, no coverage measurement. |
 | **Evaluation rigour** | **3** | Harness is good and the golden-set design is right. But substring-only answer scoring, no CI gating on thresholds, no drift detection, no significance testing. |
 
-**Weighted verdict: ~2.9 / 5.**
+**Weighted verdict: ~3.1 / 5.** (was 2.9 before the correctness pass below.)
 
 Reads as: *"excellent engineering judgement, library-grade execution, missing the
 entire operational and security surface an enterprise deployment requires."*
 
 ---
 
-## The five things that would fail a review
+## Resolved — correctness pass, 2026-10-01
+
+Three of the five blockers below are fixed, with 19 tests that reproduce each
+original bug before asserting the fix.
+
+| Was | Now |
+|---|---|
+| **No delete path** 🔴 | `delete(ids)` and `delete_by_doc(doc_id, keep=None)` on both store ports and all four adapters; `KnowledgeBase.forget(doc_id)`; orphan sweep via `keep` on every re-ingest |
+| **Embedding model identity untracked** 🔴 | `model_version` is now a required member of the `Embedder` port. A mismatch is refused at **both** ingest and query time with a message naming both versions |
+| **Untrusted parsing unguarded** 🟠 | `ScreeningLimits` (bytes / pages / seconds), enforced by every `DocumentSource` before a parser sees the file, on by default. `ScreeningRejected` is explicitly poison, never retryable |
+
+**Two further bugs the tests exposed, which the original review missed:**
+
+1. **The orphan sweep as first written could never work.** `doc_id` is a content
+   hash, so an edited document arrives with a *new* doc_id and new chunk ids —
+   `delete_by_doc(new_id)` cannot reach the previous version, which stays
+   filed under the old hash, retrievable and citable forever. The stable
+   identity of "the document at this path" is the **path**; doc_id identifies a
+   *version*. Fixed with a path→doc_id supersede index.
+2. **`PlainTextSource` silently destroyed every heading** not followed by a
+   blank line. `## Voltage
+The supply must not...` is ordinary, valid Markdown
+   and extremely common; paragraph-first splitting swallowed the heading into
+   the body, which wiped out heading levels and every downstream breadcrumb.
+   Now line-oriented.
+
+**Still open:** prompt injection (🔴, the most serious remaining item) and
+observability (🟠).
+
+---
+
+## The five things that would fail a review (original findings)
 
 These are not nitpicks. Each is a blocker.
 

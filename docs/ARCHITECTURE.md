@@ -149,7 +149,7 @@ No component is aware of which profile it runs in. That is the point.
 |---|---|---|
 | **Intake** | both | partial — `DocumentSource` dispatch only. No dedup, no screening |
 | **Processing** | core | **built** — minus enrichment |
-| **Storage** | both | built — **no delete, no versioning** |
+| **Storage** | both | built — delete + embedding-version done; generations and tenant scoping outstanding |
 | **Retrieval** | core | built — **no authorization** |
 | **Generation** | core | built — **no injection defense, no claim checking** |
 | **Control** | core | built — `governor/`, per-process only |
@@ -171,7 +171,7 @@ Legend: ✅ built · ⚠️ partial · ❌ not built
 |:--:|---|---|---|---|:--:|
 | 1 | **Acquire** | Where does this come from and am I allowed to read it? | `SourceRef` → `RawDocument` | source unreachable → retryable | ⚠️ |
 | 2 | **Identify** | Have I seen this exact content before? | `RawDocument` → `+ content_hash, mime, doc_version` | ambiguous MIME → route by extension, flag | ❌ |
-| 3 | **Screen** | Is this safe to parse? | `RawDocument` → `pass \| QUARANTINED` | over caps / encrypted / malformed → quarantine, **never retry** | ❌ |
+| 3 | **Screen** | Is this safe to parse? | `RawDocument` → `pass \| QUARANTINED` | over caps / encrypted / malformed → quarantine, **never retry** | ✅ |
 | 4 | **Route** | Which parser, and does this need OCR? | `RawDocument` → `ParserChoice` | no parser claims it → `UNSUPPORTED`, terminal | ⚠️ |
 
 **Stage 3 is the missing denial-of-service guard.** Caps that belong here:
@@ -529,7 +529,7 @@ is how a bad document takes out a pipeline, or a transient blip discards good wo
 
 No rewrite. Ordered by risk × effort, and each step is independently shippable.
 
-### Step 1 — Correctness (~1.5 days) · benefits **all three profiles**
+### Step 1 — Correctness · **DONE (2026-10-01)**
 
 | Work | Fixes |
 |---|---|
@@ -537,8 +537,10 @@ No rewrite. Ordered by risk × effort, and each step is independently shippable.
 | `embedding_model_version` on vectors; refuse or loudly flag on read mismatch | silent quality collapse |
 | `screen()` with size/page/timeout caps, default-on | denial of service |
 
-Nine hours of work, two correctness bugs and a DoS removed. **Do this regardless of
-anything else in this document.**
+Done. 19 tests, each reproducing the original defect first. Two further bugs surfaced
+during the work and are recorded in `MATURITY.md`: the sweep keyed on `doc_id` (a
+content hash) could never reach a previous version, so identity had to move to the
+path; and `PlainTextSource` discarded any heading not followed by a blank line.
 
 ### Step 2 — Diagnosability (~2 days) · profiles B, C
 

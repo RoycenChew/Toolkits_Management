@@ -44,6 +44,12 @@ class HashingEmbedder:
     def dimension(self) -> int:
         return self._dimension
 
+    @property
+    def model_version(self) -> str:
+        # Includes every parameter that changes the output, so a config change
+        # is as detectable as a model change.
+        return "hashing-v1-d%d-tri%d" % (self._dimension, int(self._use_trigrams))
+
     def _bucket(self, feature: str) -> int:
         digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
         return int.from_bytes(digest, "big") % self._dimension
@@ -96,6 +102,10 @@ class FastEmbedEmbedder:
                 raise MissingDependency("fastembed", "embed") from exc
             self._model = TextEmbedding(model_name=self._model_name)
         return self._model
+
+    @property
+    def model_version(self) -> str:
+        return "fastembed:" + self._model_name
 
     @property
     def dimension(self) -> int:

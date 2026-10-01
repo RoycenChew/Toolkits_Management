@@ -15,10 +15,17 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from collections.abc import Sequence
 from typing import Any
 
 from ..core.errors import AdapterError, MissingDependency
+from ..core.limits import (
+    ScreeningFailure,
+    ScreeningLimits,
+    ScreeningRejected,
+    ScreeningResult,
+)
 from ..core.models import BBox, Block, BlockType, Document, Provenance
 from ..doc_layout import BBox as LayoutBBox
 from ..doc_layout import BlockType as LayoutBlockType
@@ -38,6 +45,35 @@ def _core_bbox(box: LayoutBBox) -> BBox:
     return BBox(box.x0, box.y0, box.x1, box.y1)
 
 
+def _screen_file(path: str, limits: ScreeningLimits) -> ScreeningResult:
+    """Size and readability checks every source shares.
+
+    Done on the filesystem before a parser is handed the path, because the only
+    cheap moment to refuse a 4 GB file is before anything opens it.
+    """
+    try:
+        size = os.path.getsize(path)
+    except OSError as exc:
+        return ScreeningResult(
+            passed=False,
+            reason=ScreeningFailure.UNREADABLE,
+            detail=str(exc),
+        )
+    if size < limits.min_bytes:
+        return ScreeningResult(
+            passed=False, reason=ScreeningFailure.EMPTY, detail="file is empty",
+            size_bytes=size,
+        )
+    if size > limits.max_bytes:
+        return ScreeningResult(
+            passed=False,
+            reason=ScreeningFailure.TOO_LARGE,
+            detail=str(size) + " bytes exceeds the " + str(limits.max_bytes) + " byte cap",
+            size_bytes=size,
+        )
+    return ScreeningResult(passed=True, size_bytes=size)
+
+
 class PlainTextSource:
     """Reads .txt and .md. No geometry, one synthetic page.
 
@@ -52,17 +88,40 @@ class PlainTextSource:
     def supports(self, path: str) -> bool:
         return path.lower().endswith(self.extensions)
 
-    def load(self, path: str) -> Document:
+    def screen(self, path: str, limits: ScreeningLimits | None = None) -> ScreeningResult:
+        return _screen_file(path, limits or ScreeningLimits())
+
+    def load(self, path: str, limits: ScreeningLimits | None = None) -> Document:
+        self.screen(path, limits or ScreeningLimits()).raise_if_rejected()
         with open(path, "rb") as handle:
             raw = handle.read()
         text = raw.decode("utf-8", errors="replace")
         blocks: list[Block] = []
-        for paragraph in re.split(r"\n\s*\n", text):
-            stripped = paragraph.strip()
+        paragraph: list[str] = []
+
+        def flush() -> None:
+            if paragraph:
+                joined = " ".join(" ".join(paragraph).split())
+                if joined:
+                    blocks.append(
+                        Block(joined, BlockType.PARAGRAPH, Provenance(page=1))
+                    )
+                paragraph.clear()
+
+        # Line-oriented rather than paragraph-oriented. Markdown does not require
+        # a blank line after a heading — `## Voltage\nThe supply must not...` is
+        # ordinary and extremely common. Splitting on blank lines first swallows
+        # the heading into the paragraph, which silently destroys every heading
+        # level and every breadcrumb downstream.
+        for line in text.splitlines():
+            stripped = line.strip()
             if not stripped:
+                flush()
                 continue
-            heading = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+
+            heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
             if heading:
+                flush()
                 blocks.append(
                     Block(
                         text=heading.group(2).strip(),
@@ -72,17 +131,17 @@ class PlainTextSource:
                     )
                 )
                 continue
-            if re.match(r"^\s*[-*+]\s+", stripped):
-                for line in stripped.splitlines():
-                    item = re.sub(r"^\s*[-*+]\s+", "", line).strip()
-                    if item:
-                        blocks.append(
-                            Block(item, BlockType.LIST_ITEM, Provenance(page=1))
-                        )
+
+            item = re.match(r"^[-*+]\s+(.+)$", stripped)
+            if item:
+                flush()
+                blocks.append(
+                    Block(item.group(1).strip(), BlockType.LIST_ITEM, Provenance(page=1))
+                )
                 continue
-            blocks.append(
-                Block(" ".join(stripped.split()), BlockType.PARAGRAPH, Provenance(page=1))
-            )
+
+            paragraph.append(stripped)
+        flush()
 
         return Document(
             doc_id=Document.id_from_bytes(raw),
@@ -108,7 +167,50 @@ class PdfPlumberSource:
     def supports(self, path: str) -> bool:
         return path.lower().endswith(".pdf")
 
-    def load(self, path: str) -> Document:
+    def screen(self, path: str, limits: ScreeningLimits | None = None) -> ScreeningResult:
+        """Size first, then page count once the container is open.
+
+        Page count is the check that matters for PDFs: a 2 MB file can declare
+        40,000 pages, so a size cap alone does not bound the work.
+        """
+        effective = limits or ScreeningLimits()
+        result = _screen_file(path, effective)
+        if not result.passed:
+            return result
+        try:
+            import pdfplumber  # type: ignore
+        except ImportError:
+            # Cannot count pages without the backend; the size check still ran.
+            return result
+        try:
+            with pdfplumber.open(path) as pdf:
+                pages = len(pdf.pages)
+        except Exception as exc:  # noqa: BLE001 - screening boundary
+            message = str(exc).lower()
+            reason = (
+                ScreeningFailure.ENCRYPTED
+                if "password" in message or "encrypt" in message
+                else ScreeningFailure.UNREADABLE
+            )
+            return ScreeningResult(
+                passed=False, reason=reason, detail=str(exc)[:200],
+                size_bytes=result.size_bytes,
+            )
+        if pages > effective.max_pages:
+            return ScreeningResult(
+                passed=False,
+                reason=ScreeningFailure.TOO_MANY_PAGES,
+                detail=str(pages) + " pages exceeds the " + str(effective.max_pages) + " page cap",
+                size_bytes=result.size_bytes,
+                page_count=pages,
+            )
+        return ScreeningResult(
+            passed=True, size_bytes=result.size_bytes, page_count=pages
+        )
+
+    def load(self, path: str, limits: ScreeningLimits | None = None) -> Document:
+        effective = limits or ScreeningLimits()
+        self.screen(path, effective).raise_if_rejected()
         try:
             import pdfplumber  # type: ignore
         except ImportError as exc:
@@ -119,8 +221,21 @@ class PdfPlumberSource:
         with open(path, "rb") as handle:
             raw = handle.read()
 
+        started = time.monotonic()
         with pdfplumber.open(path) as pdf:
             for page_number, page in enumerate(pdf.pages, start=1):
+                # Between-page check. Cannot interrupt a single pathological
+                # page — that needs a subprocess — but it bounds a document that
+                # is slow because it is long.
+                if time.monotonic() - started > effective.max_seconds:
+                    raise ScreeningRejected(
+                        ScreeningFailure.TOO_SLOW,
+                        "exceeded "
+                        + str(effective.max_seconds)
+                        + "s after "
+                        + str(page_number - 1)
+                        + " pages",
+                    )
                 page_sizes[page_number] = (float(page.width), float(page.height))
                 words = page.extract_words(
                     extra_attrs=["size", "fontname"], use_text_flow=False
@@ -218,6 +333,13 @@ class DoclingSource:
             (".pdf", ".docx", ".pptx", ".html", ".png", ".jpg", ".jpeg", ".tiff")
         )
 
+    def screen(self, path: str, limits: ScreeningLimits | None = None) -> ScreeningResult:
+        """Size only. Docling opens many formats and counting units before
+        conversion would mean opening each one twice; the size cap is the
+        portable guard, and the caller can pre-screen with PdfPlumberSource for
+        a page count when the input is a PDF."""
+        return _screen_file(path, limits or ScreeningLimits())
+
     def _map_type(self, label: str) -> BlockType:
         lowered = label.lower()
         for needle, block_type in self._TYPE_HINTS:
@@ -227,7 +349,8 @@ class DoclingSource:
             return BlockType.PARAGRAPH
         return BlockType.OTHER
 
-    def load(self, path: str) -> Document:
+    def load(self, path: str, limits: ScreeningLimits | None = None) -> Document:
+        self.screen(path, limits or ScreeningLimits()).raise_if_rejected()
         converter = self._converter
         if converter is None:
             try:
@@ -324,11 +447,15 @@ def default_sources() -> list[Any]:
     return [PlainTextSource(), PdfPlumberSource()]
 
 
-def load_document(path: str, sources: Sequence[Any] | None = None) -> Document:
-    """Dispatch to the first source that claims the path."""
+def load_document(
+    path: str,
+    sources: Sequence[Any] | None = None,
+    limits: ScreeningLimits | None = None,
+) -> Document:
+    """Dispatch to the first source that claims the path, screening first."""
     for source in sources or default_sources():
         if source.supports(path):
-            return source.load(path)
+            return source.load(path, limits or ScreeningLimits())
     raise AdapterError("no DocumentSource supports " + os.path.basename(path))
 
 

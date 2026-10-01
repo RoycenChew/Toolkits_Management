@@ -83,6 +83,22 @@ class InMemoryVectorStore:
     def count(self) -> int:
         return len(self._rows)
 
+    def delete(self, chunk_ids: Sequence[str]) -> int:
+        removed = 0
+        for chunk_id in chunk_ids:
+            if self._rows.pop(chunk_id, None) is not None:
+                removed += 1
+        return removed
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int:
+        keep_set = set(keep or ())
+        doomed = [
+            chunk_id
+            for chunk_id, (chunk, _) in self._rows.items()
+            if chunk.doc_id == doc_id and chunk_id not in keep_set
+        ]
+        return self.delete(doomed)
+
 
 class LanceDBStore:
     """Embedded, file-backed vector store. No server to run or deploy."""
@@ -144,12 +160,10 @@ class LanceDBStore:
         self._table.add(rows)
 
     def search(self, vector: Sequence[float], top_k: int = 10) -> list[SearchHit]:
-        if self._table is None:
-            db = self._connect()
-            if self._table_name not in db.table_names():
-                return []
-            self._table = db.open_table(self._table_name)
-        rows = self._table.search([float(v) for v in vector]).limit(top_k).to_list()
+        table = self._open()
+        if table is None:
+            return []
+        rows = table.search([float(v) for v in vector]).limit(top_k).to_list()
         hits = []
         for row in rows:
             # LanceDB returns L2 distance; convert so larger is better, which is
@@ -167,12 +181,41 @@ class LanceDBStore:
         return hits
 
     def count(self) -> int:
+        table = self._open()
+        return 0 if table is None else int(table.count_rows())
+
+    def _open(self) -> Any:
         if self._table is None:
             db = self._connect()
             if self._table_name not in db.table_names():
-                return 0
+                return None
             self._table = db.open_table(self._table_name)
-        return int(self._table.count_rows())
+        return self._table
+
+    def _sql_list(self, values: Sequence[str]) -> str:
+        return ", ".join("'" + v.replace("'", "''") + "'" for v in values)
+
+    def delete(self, chunk_ids: Sequence[str]) -> int:
+        table = self._open()
+        if table is None or not chunk_ids:
+            return 0
+        before = int(table.count_rows())
+        table.delete("chunk_id IN (" + self._sql_list(chunk_ids) + ")")
+        return before - int(table.count_rows())
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int:
+        table = self._open()
+        if table is None:
+            return 0
+        predicate = "doc_id = '" + doc_id.replace("'", "''") + "'"
+        if keep:
+            # Pushed into the predicate rather than fetched and diffed in
+            # Python: a document with thousands of chunks should not round-trip
+            # its ids just to exclude a few.
+            predicate += " AND chunk_id NOT IN (" + self._sql_list(keep) + ")"
+        before = int(table.count_rows())
+        table.delete(predicate)
+        return before - int(table.count_rows())
 
 
 class SqliteFtsIndex:
@@ -242,6 +285,29 @@ class SqliteFtsIndex:
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) AS n FROM chunk_fts").fetchone()
         return int(row["n"])
+
+    def delete(self, chunk_ids: Sequence[str]) -> int:
+        if not chunk_ids:
+            return 0
+        with self._lock:
+            placeholders = ",".join("?" for _ in chunk_ids)
+            cursor = self._conn.execute(
+                "DELETE FROM chunk_fts WHERE chunk_id IN (" + placeholders + ")",
+                tuple(chunk_ids),
+            )
+            self._conn.commit()
+            return int(cursor.rowcount or 0)
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int:
+        with self._lock:
+            sql = "DELETE FROM chunk_fts WHERE doc_id = ?"
+            params: list[Any] = [doc_id]
+            if keep:
+                sql += " AND chunk_id NOT IN (" + ",".join("?" for _ in keep) + ")"
+                params.extend(keep)
+            cursor = self._conn.execute(sql, tuple(params))
+            self._conn.commit()
+            return int(cursor.rowcount or 0)
 
     def close(self) -> None:
         with self._lock:
@@ -313,6 +379,27 @@ class Bm25sIndex:
 
     def count(self) -> int:
         return len(self._chunks)
+
+    def delete(self, chunk_ids: Sequence[str]) -> int:
+        removed = 0
+        for chunk_id in chunk_ids:
+            if self._chunks.pop(chunk_id, None) is not None:
+                removed += 1
+        if removed:
+            # bm25s holds a static index, so any removal means a rebuild. Stated
+            # plainly in the README rather than hidden: this adapter suits
+            # ingest-then-query, not continuous deletion.
+            self._build()
+        return removed
+
+    def delete_by_doc(self, doc_id: str, keep: Sequence[str] | None = None) -> int:
+        keep_set = set(keep or ())
+        doomed = [
+            chunk_id
+            for chunk_id, chunk in self._chunks.items()
+            if chunk.doc_id == doc_id and chunk_id not in keep_set
+        ]
+        return self.delete(doomed)
 
 
 __all__ = [

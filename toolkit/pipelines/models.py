@@ -4,11 +4,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from ..core.limits import ScreeningLimits
 from ..core.models import BBox, Chunk, SearchHit, Usage
 
 
 @dataclass
 class IngestConfig:
+    limits: ScreeningLimits = field(default_factory=ScreeningLimits)
+    """Resource caps applied before any parser touches the file. Default-on,
+    including in the hackathon profile: the habit of trusting your own documents
+    is how an untrusted one eventually gets parsed unguarded."""
+
     batch_size: int = 32
     """Texts per embedding call. Larger is cheaper per text until the provider's
     payload limit; 32 is safe everywhere."""

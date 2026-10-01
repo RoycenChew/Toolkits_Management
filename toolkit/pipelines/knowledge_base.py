@@ -114,6 +114,12 @@ class KnowledgeBase:
         self._chunker = ChunkerComponent(embedder=self.embedder)
         self._ranker = HybridRankerComponent()
         self._chunks: dict[str, Chunk] = {}
+        self._doc_paths: dict[str, str] = {}
+        self._path_docs: dict[str, str] = {}
+        """path -> current doc_id. The supersede index; see `_supersede`. In-memory
+        only, so a persistent store outliving the process needs this rebuilt or
+        persisted — a profile B/C concern, stated in the README."""
+        self._index_model_version: str | None = None
         """Local mirror, so an answer can carry full chunk objects and provenance
         even when the vector store only round-trips a text field."""
 
@@ -235,9 +241,15 @@ class KnowledgeBase:
         return "ingest:" + hashlib.blake2b(seed.encode("utf-8"), digest_size=10).hexdigest()
 
     def _do_ingest(self, path: str, cfg: IngestConfig) -> tuple[DocumentOutcome, int, int]:
-        document = self._load(path)
+        self._require_matching_embedder()
+        document = self._load(path, cfg)
+        self._supersede(path, document.doc_id)
         result = self._chunker.execute(ChunkRequest(document, self.chunk_config))
         if not result.chunks:
+            # No chunks now, but the document may have had some before. Sweeping
+            # with an empty keep-set is the only way an emptied document stops
+            # being retrievable.
+            self._sweep(document.doc_id, keep=[])
             return DocumentOutcome(path, document.doc_id, 0, document.page_count), 0, 0
 
         calls = 0
@@ -263,8 +275,25 @@ class KnowledgeBase:
             self.vector_store.upsert(result.chunks, vectors)
         if cfg.lexical and self.lexical_index is not None:
             self.lexical_index.index(result.chunks)
+
+        # Upsert first, sweep second. Chunk ids are `doc_id#index` slots, so a
+        # document that now yields five chunks where it previously yielded eight
+        # leaves #5..#7 behind — stale, still retrievable, still citable. Doing
+        # it in this order means a failure mid-ingest leaves the old version
+        # visible rather than nothing at all.
+        kept = [chunk.chunk_id for chunk in result.chunks]
+        self._sweep(document.doc_id, keep=kept)
+
         for chunk in result.chunks:
             self._chunks[chunk.chunk_id] = chunk
+        for stale in [
+            cid
+            for cid, chunk in list(self._chunks.items())
+            if chunk.doc_id == document.doc_id and cid not in set(kept)
+        ]:
+            self._chunks.pop(stale, None)
+        self._index_model_version = self.embedder.model_version
+        self._doc_paths[document.doc_id] = path
 
         return (
             DocumentOutcome(
@@ -277,11 +306,101 @@ class KnowledgeBase:
             calls,
         )
 
-    def _load(self, path: str) -> Document:
+    def _load(self, path: str, cfg: IngestConfig | None = None) -> Document:
+        limits = (cfg or IngestConfig()).limits
         for source in self.sources:
             if source.supports(path):
-                return source.load(path)
+                return source.load(path, limits)
         raise AdapterError("no DocumentSource supports " + os.path.basename(path))
+
+    # --- deletion and consistency ----------------------------------------
+
+    def forget(self, doc_id: str) -> int:
+        """Remove a document from every index. Returns rows deleted.
+
+        The retention and right-to-erasure path. Without it a document can be
+        ingested but never un-ingested, which blocks any data-retention policy
+        and makes a wrongly-ingested or superseded document permanently
+        retrievable.
+        """
+        removed = self._sweep(doc_id, keep=None)
+        for chunk_id in [
+            cid for cid, chunk in list(self._chunks.items()) if chunk.doc_id == doc_id
+        ]:
+            self._chunks.pop(chunk_id, None)
+        path = self._doc_paths.pop(doc_id, None)
+        if path is not None and self._path_docs.get(path) == doc_id:
+            self._path_docs.pop(path, None)
+        return removed
+
+    def _supersede(self, path: str, new_doc_id: str) -> int:
+        """Retire the previous version of whatever lives at this path.
+
+        `doc_id` is a content hash, so an edited document arrives with a *new*
+        doc_id and new chunk ids. Sweeping by doc_id therefore cannot find the
+        previous version — it is filed under the old hash, and would stay
+        retrievable and citable forever.
+
+        The stable identity of "the document at this path" is the path. The
+        doc_id identifies a *version* of it. Keeping the path→doc_id mapping is
+        what lets a re-ingest supersede rather than accumulate.
+        """
+        previous = self._path_docs.get(path)
+        if previous is None or previous == new_doc_id:
+            self._path_docs[path] = new_doc_id
+            return 0
+        removed = self.forget(previous)
+        self._path_docs[path] = new_doc_id
+        return removed
+
+    def _sweep(self, doc_id: str, keep: Sequence[str] | None) -> int:
+        """Delete a document's rows from both indexes, optionally keeping some.
+
+        Not transactional across two stores. A crash between them leaves the
+        document partially visible, which is why the architecture treats
+        deletion as a state with a reconciling sweep rather than an operation
+        that either happened or did not.
+        """
+        removed = 0
+        for store in (self.vector_store, self.lexical_index):
+            if store is None:
+                continue
+            try:
+                removed += store.delete_by_doc(doc_id, keep)
+            except AttributeError as exc:
+                raise AdapterError(
+                    type(store).__name__
+                    + " does not implement delete_by_doc; it predates the"
+                    + " deletion contract and cannot be used where retention"
+                    + " or re-ingest correctness matters"
+                ) from exc
+        return removed
+
+    def _require_matching_embedder(self) -> None:
+        """Refuse to mix vectors from two different embedders.
+
+        Dimension agreement is not identity. Two models of the same size produce
+        vectors a store accepts and a search returns, with quality silently
+        gone. Refusing at ingest is the only point where the caller can still
+        act on it.
+        """
+        current = self.embedder.model_version
+        if self._index_model_version is None or self._index_model_version == current:
+            return
+        raise AdapterError(
+            "this index was built with embedder '"
+            + self._index_model_version
+            + "' but the configured embedder is '"
+            + current
+            + "'. Vectors from different models are not comparable even at the"
+            + " same dimension. Re-ingest into a fresh index, or restore the"
+            + " original embedder."
+        )
+
+    @property
+    def index_model_version(self) -> str | None:
+        """Which embedder produced the vectors currently indexed."""
+        return self._index_model_version
 
     # --- ask --------------------------------------------------------------
 
@@ -289,6 +408,7 @@ class KnowledgeBase:
         cfg = config or AskConfig()
         if not query or not query.strip():
             raise ValueError("query must not be empty")
+        self._require_matching_embedder()
 
         dense, lexical = self._retrieve(query, cfg)
         if cfg.relevance_gate and not self._is_relevant(query, dense, lexical, cfg):
