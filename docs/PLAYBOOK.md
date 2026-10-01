@@ -124,8 +124,16 @@ A unit is **complete** when every line is true. Not a feeling — a checklist.
 [ ] Type-complete: py.typed shipped, mypy clean
 ```
 
-**Current state: no unit passes all thirteen.** The gaps are the per-unit example
-(5 of 15 have one) and recipe membership (only the document vertical has recipes).
+**Current state: every unit passes all thirteen.** The last two items closed on
+2026-10-01: `examples/cookbook.py` gives each unit a runnable offline snippet, and six
+named recipes in `REGISTRY.json` give each one a consumer. Both are enforced —
+`test_packaging.py` asserts the declared references point at functions that exist, and
+CI executes the whole cookbook, so a documented example cannot rot into a lie.
+
+The one exemption is deliberate: `contracts` units need no recipe of their own, because
+a protocol is consumed implicitly by every recipe using an implementation of it, and
+inventing a recipe to satisfy a checklist is the cargo cult this rule exists to
+prevent.
 
 ---
 

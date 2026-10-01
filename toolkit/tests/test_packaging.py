@@ -525,6 +525,136 @@ def test_readmes_state_the_correct_copy_tier():
     assert not wrong, "install instructions are wrong:\n  " + "\n  ".join(wrong)
 
 
+# --------------------------------------------------------------------------
+# Definition of Done items that can be checked mechanically
+# --------------------------------------------------------------------------
+
+
+def _cookbook_source() -> str:
+    path = os.path.join(_ROOT, "examples", "cookbook.py")
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _cookbook_functions() -> set[str]:
+    tree = ast.parse(_cookbook_source())
+    return {node.name for node in tree.body if isinstance(node, ast.FunctionDef)}
+
+
+def test_every_unit_has_a_runnable_example_that_exists():
+    """`example` in the ledger must point at a real function, not an intention."""
+    available = _cookbook_functions()
+    broken = []
+    for unit_id, unit in UNITS.items():
+        reference = unit.get("example")
+        if not reference:
+            broken.append(unit_id + ": no example declared")
+            continue
+        _, _, symbol = reference.partition("::")
+        if symbol not in available:
+            broken.append("%s: declares %r which does not exist" % (unit_id, reference))
+    assert not broken, "example references are wrong: " + "; ".join(broken)
+
+
+def test_every_unit_appears_in_a_recipe():
+    """Playbook rule 5: never build a layer without a consumer. A unit in no
+    recipe is speculative inventory, and the archiving rule applies to it.
+
+    `contracts` units are exempt — a protocol definition is consumed implicitly
+    by every recipe that uses an implementation of it, and inventing a recipe to
+    satisfy a checklist would be the cargo cult this rule exists to prevent.
+    """
+    orphans = [
+        unit_id
+        for unit_id, unit in UNITS.items()
+        if not unit.get("recipes") and unit["kind"] != "contracts"
+    ]
+    assert not orphans, (
+        "no recipe uses: %s - either compose them into one or archive them"
+        % ", ".join(sorted(orphans))
+    )
+
+
+def test_recipes_reference_real_functions_and_real_units():
+    available = _cookbook_functions()
+    problems = []
+    for name, spec in REGISTRY.get("recipes", {}).items():
+        _, _, symbol = spec["entry"].partition("::")
+        if symbol not in available:
+            problems.append("recipe %s: %r does not exist" % (name, spec["entry"]))
+        for unit_id in spec["units"]:
+            if unit_id not in UNITS:
+                problems.append("recipe %s: unknown unit %r" % (name, unit_id))
+    assert not problems, "recipe wiring is wrong: " + "; ".join(problems)
+
+
+def test_recipe_membership_is_consistent_in_both_directions():
+    """The per-unit `recipes` list and the per-recipe `units` list are two views
+    of one fact, so they must agree. Duplicated facts drift."""
+    expected: dict[str, set[str]] = {uid: set() for uid in UNITS}
+    for name, spec in REGISTRY.get("recipes", {}).items():
+        for unit_id in spec["units"]:
+            if unit_id in expected:
+                expected[unit_id].add(name)
+    disagreements = [
+        "%s: unit says %s, recipes say %s"
+        % (uid, sorted(UNITS[uid].get("recipes", [])), sorted(names))
+        for uid, names in expected.items()
+        if set(UNITS[uid].get("recipes", [])) != names
+    ]
+    assert not disagreements, "; ".join(disagreements)
+
+
+def test_cookbook_dispatch_table_lists_every_snippet():
+    """A snippet absent from SNIPPETS never runs, so CI never checks it."""
+    source = _cookbook_source()
+    declared = {
+        name
+        for name in _cookbook_functions()
+        if name.startswith(("unit_", "recipe_"))
+    }
+    missing = [name for name in sorted(declared) if (": " + name) not in source]
+    assert not missing, "not in the dispatch table: " + ", ".join(missing)
+
+
+
+def test_every_cookbook_snippet_actually_runs():
+    """Execute every snippet and recipe.
+
+    Deliberately in the test suite rather than as a CI step. A documented
+    example that nobody runs rots into a lie, and putting the check here means
+    it runs locally too, on every `pytest`, instead of only on a push — and it
+    needs no change to the workflow file, which a token without the `workflow`
+    scope cannot push anyway.
+
+    Run in a subprocess so a snippet that mutates global state, or one that
+    exits, cannot affect the rest of the suite.
+    """
+    script = os.path.join(_ROOT, "examples", "cookbook.py")
+    assert os.path.exists(script), "examples/cookbook.py is missing"
+
+    result = subprocess.run(
+        [sys.executable, script],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, (
+        "the cookbook failed; a documented example no longer works\n"
+        "--- stdout tail ---\n%s\n--- stderr tail ---\n%s"
+        % (result.stdout[-1200:], result.stderr[-1800:])
+    )
+
+    expected = len(_cookbook_functions() & {
+        name for name in _cookbook_functions()
+        if name.startswith(("unit_", "recipe_"))
+    })
+    assert ("%d snippet(s) ran" % expected) in result.stdout, (
+        "expected %d snippets to run; tail was:\n%s" % (expected, result.stdout[-400:])
+    )
+
+
 def _main() -> int:
     functions = [
         (name, fn)

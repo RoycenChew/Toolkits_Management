@@ -770,7 +770,8 @@ feeling.
 ├── examples/
 │   ├── quickstart.py              folder of documents -> cited answers
 │   ├── extract.py                 document -> validated object, repair loop
-│   └── evaluate.py                three A/B experiments with a regression diff
+│   ├── evaluate.py                three A/B experiments with a regression diff
+│   └── cookbook.py                one snippet per unit + the recipe catalogue
 ├── stress/                        hostile corpus + probe harness (exploratory)
 │   ├── make_corpus.py             12 documents, each attacking one assumption
 │   └── run_stress.py              probes; reports FAIL / KNOWN / PASS
@@ -796,7 +797,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     231 tests, eight suites
+    └── tests/                     236 tests, nine suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

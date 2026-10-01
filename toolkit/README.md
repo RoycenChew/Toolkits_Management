@@ -78,6 +78,18 @@ toolkit/
 └── tests/test_toolkit.py
 ```
 
+## Every unit has a runnable snippet
+
+```bash
+python examples/cookbook.py --list        # 15 unit snippets + 6 recipes
+python examples/cookbook.py chunking      # just one
+```
+
+`REGISTRY.json` records, per unit, which snippet demonstrates it and which recipes
+compose it. `toolkit/tests/test_packaging.py` asserts those references point at
+functions that exist, so neither can be claimed without being true — and CI executes
+the whole cookbook, so a snippet that rots fails the build.
+
 ## Validation
 
 ```

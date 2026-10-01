@@ -13,9 +13,10 @@
     "  - toolkit_deps matches the actual relative imports (no drift, no over-claim)",
     "  - the dependency graph is acyclic and respects layer ordering",
     "  - every unit imports cleanly when copied out with its declared deps",
-    "  - copy_tier matches what the unit's README tells the reader to copy"
+    "  - copy_tier matches what the unit's README tells the reader to copy",
+    "",
+    "Each unit records `example` (a runnable snippet in examples/cookbook.py) and `recipes` (the named compositions it appears in). Both are Definition-of-Done items from docs/PLAYBOOK.md, and test_packaging.py asserts the referenced functions actually exist, so neither can be claimed without being true."
   ],
-
   "policy": {
     "component_cap": 25,
     "layers": {
@@ -27,12 +28,16 @@
     },
     "layer_rule": "a unit may depend only on its own layer or lower",
     "maturity_stages": [
-      "discovered", "analysed", "planned", "extracted",
-      "validated", "documented", "production_ready"
+      "discovered",
+      "analysed",
+      "planned",
+      "extracted",
+      "validated",
+      "documented",
+      "production_ready"
     ],
     "production_ready_gate": "used in at least one real project; tests alone never suffice"
   },
-
   "units": [
     {
       "id": "core",
@@ -44,11 +49,28 @@
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["Document", "Block", "Chunk", "Provenance", "BBox", "Usage", "ScreeningLimits"],
+      "api": [
+        "Document",
+        "Block",
+        "Chunk",
+        "Provenance",
+        "BBox",
+        "Usage",
+        "ScreeningLimits"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["no tenant or lineage fields yet; see docs/ARCHITECTURE.md section 6"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "no tenant or lineage fields yet; see docs/ARCHITECTURE.md section 6"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_core",
+      "recipes": [
+        "cited_document_qa",
+        "governed_cached_rag",
+        "reconcile_records",
+        "trustworthy_extraction"
+      ]
     },
     {
       "id": "ports",
@@ -57,14 +79,29 @@
       "kind": "contracts",
       "capability": "protocols the toolkit needs from the outside world",
       "domains": [],
-      "toolkit_deps": ["core"],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["DocumentSource", "Embedder", "LLM", "VectorStore", "LexicalIndex", "Reranker", "Cache"],
+      "api": [
+        "DocumentSource",
+        "Embedder",
+        "LLM",
+        "VectorStore",
+        "LexicalIndex",
+        "Reranker",
+        "Cache"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["no async variants", "no streaming or tool-calling surface on LLM"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "no async variants",
+        "no streaming or tool-calling surface on LLM"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_ports",
+      "recipes": []
     },
     {
       "id": "concurrency",
@@ -72,15 +109,31 @@
       "layer": 1,
       "kind": "functions",
       "capability": "order-preserving bounded parallel map with selective retry",
-      "domains": ["10"],
-      "toolkit_deps": ["core"],
+      "domains": [
+        "10"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["bounded_map", "batched", "embed_all"],
+      "api": [
+        "bounded_map",
+        "batched",
+        "embed_all"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["threads only, no asyncio", "no cross-process coordination"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "threads only, no asyncio",
+        "no cross-process coordination"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_concurrency",
+      "recipes": [
+        "reconcile_records",
+        "resumable_ingest"
+      ]
     },
     {
       "id": "cache",
@@ -88,15 +141,32 @@
       "layer": 1,
       "kind": "wrapper",
       "capability": "content-addressed caching of model calls, keyed per text",
-      "domains": ["01", "10"],
-      "toolkit_deps": ["core"],
+      "domains": [
+        "01",
+        "10"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["SqliteCache", "CachedEmbedder", "CachedLLM", "make_key"],
+      "api": [
+        "SqliteCache",
+        "CachedEmbedder",
+        "CachedLLM",
+        "make_key"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["no expiry or eviction", "model_name defaults to the class name and can collide"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "no expiry or eviction",
+        "model_name defaults to the class name and can collide"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_cache",
+      "recipes": [
+        "governed_cached_rag"
+      ]
     },
     {
       "id": "governor",
@@ -104,15 +174,30 @@
       "layer": 1,
       "kind": "wrapper",
       "capability": "pre-flight token and cost budget, sliding-window rate limit, selective retry",
-      "domains": ["01", "09", "10"],
-      "toolkit_deps": ["core"],
+      "domains": [
+        "01",
+        "09",
+        "10"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["GovernedLLM", "GovernorConfig"],
+      "api": [
+        "GovernedLLM",
+        "GovernorConfig"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["state is per-process, so N workers each get the full budget"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "state is per-process, so N workers each get the full budget"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_governor",
+      "recipes": [
+        "governed_cached_rag"
+      ]
     },
     {
       "id": "durable_steps",
@@ -120,15 +205,31 @@
       "layer": 1,
       "kind": "component",
       "capability": "crash-resumable multi-step execution on a SQL checkpoint table, with leasing",
-      "domains": ["06", "10"],
+      "domains": [
+        "06",
+        "10"
+      ],
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["DurableStepsComponent", "SqliteCheckpointStore", "Step", "WorkflowRequest"],
+      "api": [
+        "DurableStepsComponent",
+        "SqliteCheckpointStore",
+        "Step",
+        "WorkflowRequest"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["linear only, no DAG or fan-out", "single machine", "step results must be JSON-serialisable"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "linear only, no DAG or fan-out",
+        "single machine",
+        "step results must be JSON-serialisable"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_durable_steps",
+      "recipes": [
+        "resumable_ingest"
+      ]
     },
     {
       "id": "doc_layout",
@@ -136,15 +237,30 @@
       "layer": 2,
       "kind": "component",
       "capability": "reading order, heading hierarchy, page furniture and overlap resolution over positioned text spans",
-      "domains": ["02"],
+      "domains": [
+        "02"
+      ],
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["DocLayoutComponent", "LayoutRequest", "TextSpan", "BBox"],
+      "api": [
+        "DocLayoutComponent",
+        "LayoutRequest",
+        "TextSpan",
+        "BBox"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["table structure not reconstructed", "no OCR or layout model", "reading order is page-number order across pages"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "table structure not reconstructed",
+        "no OCR or layout model",
+        "reading order is page-number order across pages"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_doc_layout",
+      "recipes": [
+        "cited_document_qa"
+      ]
     },
     {
       "id": "chunking",
@@ -152,15 +268,34 @@
       "layer": 2,
       "kind": "component",
       "capability": "structure-aware chunking that carries page and bbox provenance into every chunk",
-      "domains": ["02", "04"],
-      "toolkit_deps": ["core"],
+      "domains": [
+        "02",
+        "04"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["ChunkerComponent", "ChunkRequest", "ChunkConfig", "estimate_tokens"],
+      "api": [
+        "ChunkerComponent",
+        "ChunkRequest",
+        "ChunkConfig",
+        "estimate_tokens"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["tables chunked as text", "sentence splitting is regex plus an abbreviation list", "default token counter is a heuristic"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "tables chunked as text",
+        "sentence splitting is regex plus an abbreviation list",
+        "default token counter is a heuristic"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_chunking",
+      "recipes": [
+        "cited_document_qa",
+        "measured_change"
+      ]
     },
     {
       "id": "hybrid_ranker",
@@ -168,15 +303,32 @@
       "layer": 2,
       "kind": "component",
       "capability": "rank fusion across incomparable retrievers, budgeted rerank cascade, MMR",
-      "domains": ["04", "07"],
+      "domains": [
+        "04",
+        "07"
+      ],
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["HybridRankerComponent", "FusionRequest", "FusionConfig", "RankedList"],
+      "api": [
+        "HybridRankerComponent",
+        "FusionRequest",
+        "FusionConfig",
+        "RankedList"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["cannot improve recall", "MMR is quadratic in the candidate pool", "no learning to rank"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "cannot improve recall",
+        "MMR is quadratic in the candidate pool",
+        "no learning to rank"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_hybrid_ranker",
+      "recipes": [
+        "cited_document_qa",
+        "measured_change"
+      ]
     },
     {
       "id": "entity_resolution",
@@ -184,15 +336,31 @@
       "layer": 2,
       "kind": "component",
       "capability": "unsupervised record matching: learned blocking, Fellegi-Sunter with EM, clustering",
-      "domains": ["03", "07"],
+      "domains": [
+        "03",
+        "07"
+      ],
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["EntityResolutionComponent", "ResolutionRequest", "FieldComparison", "affine_gap_similarity"],
+      "api": [
+        "EntityResolutionComponent",
+        "ResolutionRequest",
+        "FieldComparison",
+        "affine_gap_similarity"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["assumes conditional independence between fields", "blocking is in-memory", "average linkage is cubic in a region"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "assumes conditional independence between fields",
+        "blocking is in-memory",
+        "average linkage is cubic in a region"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_entity_resolution",
+      "recipes": [
+        "reconcile_records"
+      ]
     },
     {
       "id": "guardrails",
@@ -200,15 +368,31 @@
       "layer": 2,
       "kind": "component",
       "capability": "indirect prompt-injection defense: source delimiting, pattern neutralisation, output policy",
-      "domains": ["01", "09"],
+      "domains": [
+        "01",
+        "09"
+      ],
       "toolkit_deps": [],
       "external_deps": [],
       "copy_tier": "standalone",
-      "api": ["GuardrailComponent", "GuardrailConfig", "SYSTEM_PREAMBLE"],
+      "api": [
+        "GuardrailComponent",
+        "GuardrailConfig",
+        "SYSTEM_PREAMBLE"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["patterns are English and literal, evaded by obfuscation", "cannot detect a false claim with no imperative", "no claim entailment checking"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "patterns are English and literal, evaded by obfuscation",
+        "cannot detect a false claim with no imperative",
+        "no claim entailment checking"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_guardrails",
+      "recipes": [
+        "cited_document_qa",
+        "trustworthy_extraction"
+      ]
     },
     {
       "id": "extraction",
@@ -216,15 +400,34 @@
       "layer": 2,
       "kind": "component",
       "capability": "schema-driven extraction with a targeted repair loop and per-field provenance, plus multi-document splitting",
-      "domains": ["01", "02", "03"],
-      "toolkit_deps": ["core"],
+      "domains": [
+        "01",
+        "02",
+        "03"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
       "external_deps": [],
       "copy_tier": "needs_core",
-      "api": ["ExtractionComponent", "DocumentSplitterComponent", "ExtractionSchema", "FieldSpec"],
+      "api": [
+        "ExtractionComponent",
+        "DocumentSplitterComponent",
+        "ExtractionSchema",
+        "FieldSpec"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["one model call per attempt over the whole document", "grounding is substring matching", "splitter is heuristic and needs furniture classification"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "one model call per attempt over the whole document",
+        "grounding is substring matching",
+        "splitter is heuristic and needs furniture classification"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_extraction",
+      "recipes": [
+        "trustworthy_extraction"
+      ]
     },
     {
       "id": "adapters",
@@ -233,14 +436,48 @@
       "kind": "adapters",
       "capability": "the only place a vendor SDK may be imported; at least two implementations per port",
       "domains": [],
-      "toolkit_deps": ["core", "doc_layout"],
-      "external_deps": ["pdfplumber", "docling", "litellm", "fastembed", "lancedb", "bm25s", "sentence-transformers"],
+      "toolkit_deps": [
+        "core",
+        "doc_layout"
+      ],
+      "external_deps": [
+        "pdfplumber",
+        "docling",
+        "litellm",
+        "fastembed",
+        "lancedb",
+        "bm25s",
+        "sentence-transformers"
+      ],
       "copy_tier": "needs_package",
-      "api": ["PlainTextSource", "PdfPlumberSource", "DoclingSource", "HashingEmbedder", "FastEmbedEmbedder", "InMemoryVectorStore", "LanceDBStore", "SqliteFtsIndex", "Bm25sIndex", "ScriptedLLM", "LiteLLMClient", "LexicalOverlapReranker", "LLMReranker", "CrossEncoderReranker"],
+      "api": [
+        "PlainTextSource",
+        "PdfPlumberSource",
+        "DoclingSource",
+        "HashingEmbedder",
+        "FastEmbedEmbedder",
+        "InMemoryVectorStore",
+        "LanceDBStore",
+        "SqliteFtsIndex",
+        "Bm25sIndex",
+        "ScriptedLLM",
+        "LiteLLMClient",
+        "LexicalOverlapReranker",
+        "LLMReranker",
+        "CrossEncoderReranker"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["every vendor import is lazy, so failures surface at call time not construction"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "every vendor import is lazy, so failures surface at call time not construction"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_adapters",
+      "recipes": [
+        "cited_document_qa",
+        "governed_cached_rag",
+        "resumable_ingest"
+      ]
     },
     {
       "id": "pipelines",
@@ -248,15 +485,42 @@
       "layer": 3,
       "kind": "facade",
       "capability": "KnowledgeBase: ingest a folder, ask with verified citations",
-      "domains": ["02", "04"],
-      "toolkit_deps": ["adapters", "chunking", "concurrency", "core", "durable_steps", "guardrails", "hybrid_ranker"],
+      "domains": [
+        "02",
+        "04"
+      ],
+      "toolkit_deps": [
+        "adapters",
+        "chunking",
+        "concurrency",
+        "core",
+        "durable_steps",
+        "guardrails",
+        "hybrid_ranker"
+      ],
       "external_deps": [],
       "copy_tier": "needs_package",
-      "api": ["KnowledgeBase", "IngestConfig", "AskConfig", "Answer"],
+      "api": [
+        "KnowledgeBase",
+        "IngestConfig",
+        "AskConfig",
+        "Answer"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["chunks mirrored in memory", "sequential across documents", "supersede index is not persisted"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "chunks mirrored in memory",
+        "sequential across documents",
+        "supersede index is not persisted"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_pipelines",
+      "recipes": [
+        "cited_document_qa",
+        "governed_cached_rag",
+        "measured_change",
+        "resumable_ingest"
+      ]
     },
     {
       "id": "evaluation",
@@ -264,15 +528,92 @@
       "layer": 4,
       "kind": "harness",
       "capability": "golden sets keyed on snippets, IR metrics, regression diff naming broken cases",
-      "domains": ["01", "04"],
-      "toolkit_deps": ["core", "pipelines"],
+      "domains": [
+        "01",
+        "04"
+      ],
+      "toolkit_deps": [
+        "core",
+        "pipelines"
+      ],
       "external_deps": [],
       "copy_tier": "needs_package",
-      "api": ["EvalRunner", "EvalDataset", "EvalCase", "diff_reports"],
+      "api": [
+        "EvalRunner",
+        "EvalDataset",
+        "EvalCase",
+        "diff_reports"
+      ],
       "maturity": "documented",
       "used_in_projects": [],
-      "limitations": ["answer scoring is substring matching", "binary relevance only", "no significance testing"],
-      "last_reviewed": "2026-10-01"
+      "limitations": [
+        "answer scoring is substring matching",
+        "binary relevance only",
+        "no significance testing"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_evaluation",
+      "recipes": [
+        "measured_change"
+      ]
     }
-  ]
+  ],
+  "recipes": {
+    "cited_document_qa": {
+      "entry": "examples/cookbook.py::recipe_cited_document_qa",
+      "units": [
+        "adapters",
+        "chunking",
+        "core",
+        "doc_layout",
+        "guardrails",
+        "hybrid_ranker",
+        "pipelines"
+      ]
+    },
+    "governed_cached_rag": {
+      "entry": "examples/cookbook.py::recipe_governed_cached_rag",
+      "units": [
+        "adapters",
+        "cache",
+        "core",
+        "governor",
+        "pipelines"
+      ]
+    },
+    "measured_change": {
+      "entry": "examples/cookbook.py::recipe_measured_change",
+      "units": [
+        "chunking",
+        "evaluation",
+        "hybrid_ranker",
+        "pipelines"
+      ]
+    },
+    "reconcile_records": {
+      "entry": "examples/cookbook.py::recipe_reconcile_records",
+      "units": [
+        "concurrency",
+        "core",
+        "entity_resolution"
+      ]
+    },
+    "resumable_ingest": {
+      "entry": "examples/cookbook.py::recipe_resumable_ingest",
+      "units": [
+        "adapters",
+        "concurrency",
+        "durable_steps",
+        "pipelines"
+      ]
+    },
+    "trustworthy_extraction": {
+      "entry": "examples/cookbook.py::recipe_trustworthy_extraction",
+      "units": [
+        "core",
+        "extraction",
+        "guardrails"
+      ]
+    }
+  }
 }
