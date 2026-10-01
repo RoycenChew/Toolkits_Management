@@ -25,8 +25,9 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 203 passing |
+| **Tests** | 239 passing |
 | **Type checking** | `mypy` clean across 47 source files |
+| **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
 | **Components** | 12 |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
@@ -91,6 +92,7 @@ pip install -e .            # stdlib only — works offline
 pip install -e ".[dev]"     # + pytest, ruff, mypy
 
 python -m pytest toolkit/tests -q
+python -m pytest toolkit/tests -q --cov   # 94%, fails below 90%
 ```
 
 Three runnable demos, all offline:
@@ -760,6 +762,7 @@ feeling.
 ```
 .
 ├── REGISTRY.json                  the ledger: layers, deps, copy tiers, limitations
+├── CHANGELOG.md                   what changed, and what each release got wrong
 ├── pyproject.toml                 optional extras, ruff / mypy / pytest config
 ├── .gitattributes                 LF everywhere; stops CRLF and BOM drift
 ├── .github/workflows/ci.yml       two jobs: stdlib-only, then with backends
@@ -797,7 +800,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     236 tests, nine suites
+    └── tests/                     239 tests, nine suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

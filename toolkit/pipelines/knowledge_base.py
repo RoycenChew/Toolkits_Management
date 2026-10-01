@@ -607,19 +607,6 @@ class KnowledgeBase:
             grounded=True,
         )
 
-    def _context(self, selected: Sequence[Chunk], cfg: AskConfig) -> str:
-        parts: list[str] = []
-        used = 0
-        for index, chunk in enumerate(selected, start=1):
-            prov = chunk.provenances[0] if chunk.provenances else None
-            where = " (page " + str(prov.page) + ")" if prov else ""
-            block = "[" + str(index) + "]" + where + "\n" + chunk.text
-            if used + len(block) > cfg.context_char_limit and parts:
-                break
-            parts.append(block)
-            used += len(block)
-        return "\n\n".join(parts)
-
     def _generated(
         self,
         query: str,

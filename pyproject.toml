@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolkit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Reusable engineering components: document layout, hybrid ranking, entity resolution, durable execution."
 readme = "toolkit/README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ rerank = ["sentence-transformers>=3.0"]
 eval = ["ragas>=0.2", "deepeval>=1.0"]
 web = ["crawl4ai>=0.4"]
 audio = ["faster-whisper>=1.0"]
-dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6", "mypy>=1.11"]
 all = [
     "pdfplumber>=0.11",
     "docling>=2.0",
@@ -44,6 +44,31 @@ exclude = ["toolkit.tests*"]
 [tool.pytest.ini_options]
 testpaths = ["toolkit/tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["toolkit"]
+# The test files are excluded deliberately. Including them reported 93% while
+# the library itself was lower, because test code is almost entirely executed by
+# definition - it inflates the number and measures nothing.
+omit = ["toolkit/tests/*"]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
+# Measured at 94% when the floor was set. Deliberately below that: a floor at the
+# current figure fails on any small refactor, and a floor far below enforces
+# nothing. The gap is the tolerance for honest churn, not an allowance for
+# untested features.
+fail_under = 90
+exclude_also = [
+    # Protocol bodies are `...`; there is nothing to execute.
+    '^\s*\.\.\.$',
+    "if TYPE_CHECKING:",
+    # Lazy vendor imports: the failure branch only runs when the package is
+    # absent, and the with-backends CI job has it installed.
+    "raise MissingDependency",
+    "except ImportError:",
+]
 
 [tool.ruff]
 line-length = 95

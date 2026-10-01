@@ -502,6 +502,63 @@ def test_retries_are_bounded_and_then_surface():
         raise AssertionError("expected AdapterError after exhausting attempts")
 
 
+def test_adapter_error_is_retried_on_its_own_backoff():
+    """The two retryable failures take different paths and only one was tested.
+
+    `RateLimited` honours a provider's `retry_after`; `AdapterError` has no such
+    hint and must fall back to the exponential schedule. Coverage found the
+    second branch untested, which matters because a transient backend failure is
+    the more common of the two.
+    """
+    clock = _FakeClock()
+    attempts = {"n": 0}
+
+    class FlakyBackend:
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            attempts["n"] += 1
+            if attempts["n"] < 3:
+                raise AdapterError("connection reset")
+            return ScriptedLLM(responses=["recovered"]).complete(messages)
+
+    llm = GovernedLLM(
+        FlakyBackend(),
+        GovernorConfig(max_attempts=4, initial_backoff=2.0, backoff_multiplier=2.0,
+                       jitter=0.0),
+        clock=clock.time,
+        sleep=clock.sleep,
+    )
+    completion = llm.complete([Message("user", "q")])
+
+    assert completion.text == "recovered"
+    assert attempts["n"] == 3
+    assert llm.state.retries == 2
+    # Exponential, not a provider hint: 2.0 then 4.0.
+    assert clock.slept == [2.0, 4.0], clock.slept
+
+
+def test_adapter_error_retries_are_bounded():
+    clock = _FakeClock()
+
+    class AlwaysBroken:
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            raise AdapterError("backend is down")
+
+    llm = GovernedLLM(
+        AlwaysBroken(),
+        GovernorConfig(max_attempts=2, initial_backoff=0.1, jitter=0.0),
+        clock=clock.time,
+        sleep=clock.sleep,
+    )
+    try:
+        llm.complete([Message("user", "q")])
+    except AdapterError as exc:
+        assert "2 attempts" in str(exc)
+        assert "backend is down" in str(exc)
+    else:
+        raise AssertionError("expected AdapterError after exhausting attempts")
+    assert len(clock.slept) == 1, "one backoff between two attempts"
+
+
 def test_governor_accumulates_usage_and_composes_with_the_cache():
     clock = _FakeClock()
     inner = ScriptedLLM(handler=lambda m: "answer")

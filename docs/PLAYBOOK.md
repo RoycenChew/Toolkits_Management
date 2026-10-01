@@ -94,7 +94,21 @@ Can you use a component after two weeks away, from its README alone, without ope
 the source? No CI can run this. Try it on `entity_resolution` — the one with EM and
 learned blocking predicates — and you will learn more than any audit produces.
 
-## 9. Make maintenance cost visible
+## 9. Coverage is a defect-finder, not a score
+
+94% of the library, floored at 90%. The number is not the point — what it found is:
+
+- **`KnowledgeBase._context` was dead code**, orphaned when guardrails were wired in
+  and still being maintained for nothing. No review caught it.
+- **The governor's `AdapterError` retry branch had no test**, only the `RateLimited`
+  one. The two differ — one honours a provider's `retry_after`, the other falls back to
+  exponential backoff — and the untested branch is the more common failure.
+
+Chase uncovered *branches*, not the percentage. The floor sits below the current figure
+on purpose: a floor at the measurement fails on any honest refactor, and a floor far
+below enforces nothing.
+
+## 10. Make maintenance cost visible
 
 Per unit, in the registry: dependencies, declared limitations, `last_reviewed`. Cost
 is invisible by default, which is how libraries accumulate a hundred components nobody
@@ -175,6 +189,7 @@ successful session: it saved you a maintenance obligation.
 | When | What |
 |---|---|
 | Per change | CI: stdlib-only job, packaging tests, lint, types |
+| Per change | `pytest --cov` locally; floor 90%, currently 94%. Not in `addopts` because coverage tracing triples the run time and a slow suite is a suite nobody runs |
 | Per new unit | Definition of Done, registry entry, cap check |
 | Monthly | sort registry by `last_reviewed`, action the oldest three |
 | Quarterly | archive any unit with empty `used_in_projects` after 6 months |
