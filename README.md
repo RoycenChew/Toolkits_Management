@@ -1,5 +1,7 @@
 # Toolkits Management
 
+[![CI](https://github.com/RoycenChew/Toolkits_Management/actions/workflows/ci.yml/badge.svg)](https://github.com/RoycenChew/Toolkits_Management/actions/workflows/ci.yml)
+
 A reusable engineering toolkit for document intelligence and retrieval, built on one
 principle:
 
