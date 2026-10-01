@@ -420,15 +420,27 @@ def _pdf(pages: int) -> str:
     return path
 
 
+def _pdf_backend_available() -> bool:
+    try:
+        import pdfplumber  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def test_page_cap_is_the_check_that_matters_for_pdfs():
     """A small file can declare many pages, so a size cap alone does not bound
-    the work."""
+    the work.
+
+    Requires pdfplumber: `screen()` deliberately degrades to a size-only check
+    when the backend is absent rather than raising, so there is no page count to
+    assert in a bare install.
+    """
+    if not _pdf_backend_available():
+        return
     path = _pdf(6)
     source = PdfPlumberSource()
-    try:
-        ok = source.screen(path, ScreeningLimits())
-    except MissingDependency:
-        return  # pdfplumber absent; the size check is covered elsewhere
+    ok = source.screen(path, ScreeningLimits())
     assert ok.passed and ok.page_count == 6
 
     capped = source.screen(path, ScreeningLimits(max_pages=3))

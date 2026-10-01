@@ -289,9 +289,19 @@ def test_near_duplicate_documents_do_not_fill_the_top_k():
 def test_whole_hostile_corpus_ingests_and_answers():
     kb = KnowledgeBase()
     result = kb.ingest_folder(corpus())
+
+    # The scan is always expected to fail; it has no text layer. In a bare
+    # install every PDF fails too, with MissingDependency, which is correct
+    # behaviour and not a finding — so what counts as unexpected depends on the
+    # environment. Asserting otherwise made the stdlib-only CI job fail on a
+    # test bug rather than a product bug.
+    expected = {"no_text_layer.pdf"}
+    if not _pdf_available():
+        expected |= {
+            name for name in os.listdir(corpus()) if name.lower().endswith(".pdf")
+        }
     unexpected = [
-        f for f in result.failures
-        if os.path.basename(f.path) != "no_text_layer.pdf"
+        f for f in result.failures if os.path.basename(f.path) not in expected
     ]
     assert not unexpected, [
         (os.path.basename(f.path), f.error[:60]) for f in unexpected
