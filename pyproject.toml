@@ -32,6 +32,11 @@ all = [
     "bm25s>=0.2",
 ]
 
+# PEP 561: without this marker a consumer gets no type information at all,
+# however clean mypy is in this repo.
+[tool.setuptools.package-data]
+"toolkit" = ["py.typed"]
+
 [tool.setuptools.packages.find]
 include = ["toolkit*"]
 exclude = ["toolkit.tests*"]

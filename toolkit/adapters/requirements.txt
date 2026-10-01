@@ -1,0 +1,2 @@
+# Vendor SDKs, all optional and all imported lazily.
+# Install via extras: pip install -e ".[docs]" / "[embed]" / "[store]" / "[llm]" / "[rerank]"

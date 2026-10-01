@@ -1,0 +1,23 @@
+# Normalise line endings in the repository to LF.
+#
+# Without this, git's autocrlf and PowerShell's Set-Content between them put
+# CRLF into tracked source files, and a UTF-8 BOM into six of them. Python
+# tolerates both on import, so the test suite stayed green while tooling broke:
+# a BOM makes ast.parse fail outright. toolkit/tests/test_packaging.py asserts
+# neither is present; this file stops them arriving in the first place.
+* text=auto eol=lf
+
+*.py    text eol=lf diff=python
+*.md    text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.txt   text eol=lf
+*.cfg   text eol=lf
+
+# Binary, never touched.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.db    binary

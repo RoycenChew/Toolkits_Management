@@ -1,4 +1,4 @@
-﻿"""Reading-order recovery and structure inference over positioned text spans.
+"""Reading-order recovery and structure inference over positioned text spans.
 
 This is the *algorithmic* half of a document parser, separated from the ML half.
 Layout detection models (Docling's layout predictor, Surya, DocLayout-YOLO) tell

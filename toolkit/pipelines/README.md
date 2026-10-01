@@ -91,6 +91,19 @@ bge-class models place unrelated text at 0.6–0.8, so a 0.25 floor would admit
 everything. So `min_dense_similarity` defaults to `None` — calibrate it against your
 own embedder, then set it.
 
+## Installation
+
+```bash
+pip install -e .                 # stdlib only, works offline
+pip install -e ".[all]"          # optional backends
+```
+
+Python 3.10+. This is the facade that wires everything, so it depends on seven
+other units (`adapters`, `chunking`, `concurrency`, `core`, `durable_steps`,
+`guardrails`, `hybrid_ranker`). Install the package; copying the directory will not
+work, and `toolkit/tests/test_packaging.py` verifies that claim rather than
+asserting it.
+
 ## Usage
 
 Offline, zero setup:

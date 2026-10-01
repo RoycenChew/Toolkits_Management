@@ -75,7 +75,21 @@ and numbers stay in scope; that is where fabrication actually happens.
 
 ## Installation
 
-Copy the `extraction/` directory. Python 3.10+.
+Copy **two** directories, because this unit imports the shared contracts:
+
+```bash
+cp -r toolkit/extraction  your_project/
+cp -r toolkit/core      your_project/
+```
+
+Both must sit under the same parent package so the relative import resolves.
+Python 3.10+. Standard library only.
+
+Earlier versions of this README said "copy the `extraction/` directory" full stop,
+which does not work — `toolkit/tests/test_packaging.py` now copies each unit out
+with its declared dependencies and imports it in a subprocess, so the instruction
+is verified rather than asserted.
+
 
 ## Dependencies
 

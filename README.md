@@ -200,7 +200,24 @@ Answer  ── text + citations resolving to page and bbox + retrieval trace
 
 ## The components
 
-Every component exposes one class with one method: `execute(input_data) -> output`.
+Not every unit is the same shape, and pretending otherwise would be the kind of
+claim this repo tries not to make. There are seven kinds, recorded per unit in
+[`REGISTRY.json`](REGISTRY.json):
+
+| Kind | Shape | Units |
+|---|---|---|
+| **component** | one class, `execute(input_data) -> output` | `doc_layout` `chunking` `hybrid_ranker` `entity_resolution` `extraction` `guardrails` `durable_steps` |
+| **wrapper** | satisfies the port it wraps, so it composes by construction | `cache` `governor` |
+| **functions** | plain functions, no state to hold | `concurrency` |
+| **contracts** | types and protocols only | `core` `ports` |
+| **adapters** | the vendor containment boundary | `adapters` |
+| **facade** | wires the rest; `ingest_folder()` + `ask()` | `pipelines` |
+| **harness** | measures everything else | `evaluation` |
+
+`copy_tier` in the registry says what you must copy to reuse each one — `standalone`,
+`needs_core`, or `needs_package` — and `toolkit/tests/test_packaging.py` verifies every
+one of those claims by copying the unit out and importing it in a subprocess with the
+repository off `sys.path`.
 
 | Component | What it does | Prior art |
 |---|---|---|
@@ -742,35 +759,44 @@ feeling.
 
 ```
 .
-├── .github/workflows/ci.yml       two jobs: stdlib-only, then with backends
+├── REGISTRY.json                  the ledger: layers, deps, copy tiers, limitations
 ├── pyproject.toml                 optional extras, ruff / mypy / pytest config
+├── .gitattributes                 LF everywhere; stops CRLF and BOM drift
+├── .github/workflows/ci.yml       two jobs: stdlib-only, then with backends
+├── docs/
+│   ├── ARCHITECTURE.md            target design: profiles, planes, 22 stages, I/O
+│   ├── MATURITY.md                honest readiness assessment and what it found
+│   └── PLAYBOOK.md                how this is maintained + Definition of Done
 ├── examples/
 │   ├── quickstart.py              folder of documents -> cited answers
 │   ├── extract.py                 document -> validated object, repair loop
 │   └── evaluate.py                three A/B experiments with a regression diff
+├── stress/                        hostile corpus + probe harness (exploratory)
+│   ├── make_corpus.py             12 documents, each attacking one assumption
+│   └── run_stress.py              probes; reports FAIL / KNOWN / PASS
 └── toolkit/
-    ├── README.md                  component index
-    ├── ROADMAP.md                 the plan and the per-phase record
-    ├── core/                      L0 contracts + error taxonomy
-    ├── ports.py                   L1 protocols
-    ├── adapters/                  the only place a vendor SDK may be imported
+    ├── py.typed                   PEP 561 marker, without which consumers get no types
+    ├── core/                      L0 contracts, error taxonomy, text normalisation
+    ├── ports.py                   L0 protocols
+    ├── adapters/                  L2 — the only place a vendor SDK may be imported
     │   ├── sources.py             PlainText / PdfPlumber / Docling
     │   ├── embedders.py           Hashing / FastEmbed
     │   ├── llms.py                Scripted / LiteLLM
     │   ├── stores.py              InMemory / LanceDB / SqliteFts / Bm25s
     │   └── rerankers.py           LexicalOverlap / LLM / CrossEncoder
-    ├── doc_layout/                reading order, headings, furniture
-    ├── chunking/                  provenance-carrying chunks
-    ├── hybrid_ranker/             RRF, cascade, MMR
-    ├── entity_resolution/         blocking, Fellegi-Sunter, clustering
-    ├── extraction/                repair loop, grounding, splitter
-    ├── cache/                     content-addressed model-call cache
-    ├── governor/                  budget, rate limit, retry
-    ├── durable_steps/             crash-resumable execution
-    ├── concurrency.py             bounded parallel map
-    ├── pipelines/                 KnowledgeBase: ingest + ask
-    ├── evaluation/                golden sets, metrics, regression diff
-    └── tests/                     139 tests, six suites
+    ├── cache/                     L1 content-addressed model-call cache
+    ├── governor/                  L1 budget, rate limit, retry
+    ├── concurrency.py             L1 bounded parallel map
+    ├── durable_steps/             L1 crash-resumable execution
+    ├── doc_layout/                L2 reading order, headings, furniture
+    ├── chunking/                  L2 provenance-carrying chunks
+    ├── hybrid_ranker/             L2 RRF, cascade, MMR
+    ├── entity_resolution/         L2 blocking, Fellegi-Sunter, clustering
+    ├── guardrails/                L2 injection defense, output policy
+    ├── extraction/                L2 repair loop, grounding, splitter
+    ├── pipelines/                 L3 KnowledgeBase: ingest + ask
+    ├── evaluation/                L4 golden sets, metrics, regression diff
+    └── tests/                     231 tests, eight suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

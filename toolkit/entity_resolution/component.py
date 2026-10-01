@@ -1,4 +1,4 @@
-﻿"""Unsupervised entity resolution: learned blocking, Fellegi-Sunter scoring, clustering.
+"""Unsupervised entity resolution: learned blocking, Fellegi-Sunter scoring, clustering.
 
 Three separate pieces of prior art, reimplemented from their algorithms and
 composed into one pipeline:

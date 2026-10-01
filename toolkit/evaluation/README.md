@@ -57,7 +57,14 @@ EvalDataset (JSONL)  ->  EvalRunner  ->  EvalReport  ->  diff_reports  ->  Regre
 
 ## Installation
 
-Copy the `evaluation/` directory. Python 3.10+.
+```bash
+pip install -e .
+```
+
+Python 3.10+, standard library only. This unit is **not** copy-one-folder: the
+runner imports `core` and `pipelines`, so install the package rather than copying
+the directory. The metrics in `metrics.py` are the exception — that module imports
+nothing and can be lifted on its own.
 
 ## Dependencies
 

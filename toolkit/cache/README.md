@@ -46,7 +46,21 @@ sqlite3 (stdlib)  ->  SqliteCache  ->  CachedEmbedder / CachedLLM
 
 ## Installation
 
-Copy the `cache/` directory. Python 3.10+.
+Copy **two** directories, because this unit imports the shared contracts:
+
+```bash
+cp -r toolkit/cache  your_project/
+cp -r toolkit/core      your_project/
+```
+
+Both must sit under the same parent package so the relative import resolves.
+Python 3.10+. Standard library only.
+
+Earlier versions of this README said "copy the `cache/` directory" full stop,
+which does not work — `toolkit/tests/test_packaging.py` now copies each unit out
+with its declared dependencies and imports it in a subprocess, so the instruction
+is verified rather than asserted.
+
 
 ## Dependencies
 
