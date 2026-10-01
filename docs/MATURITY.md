@@ -25,7 +25,7 @@ Scale: **1** absent · **2** prototype · **3** solid library · **4** productio
 | **Honesty of documentation** | **5** | Every component documents its own limitations, and the measurements that killed a bad design are in the docstrings. Rare at any scale. |
 | **Testability** | **4** | Deterministic stdlib fakes for every port. Offline, reproducible, no API key. |
 | **API design** | **3.5** | One `execute()` per component, clean dataclasses. But no versioning policy, no deprecation path, no stability guarantees. |
-| **Security** | **2.5** | **The weakest dimension.** No prompt-injection defense, no limits on untrusted parsing, no PII handling, no authz on retrieval. Detail below. |
+| **Security** | **3.5** | Injection defense (delimiting + neutralisation + output policy) and untrusted-parse limits both shipped. Still absent: PII handling and authorization on retrieval. Pattern matching is evadable by design — see *Resolved — injection defense*. |
 | **Observability** | **1** | No structured logging, no traces, no metrics, no correlation IDs. You cannot answer "why was this run slow" or "what did we spend". |
 | **Data governance** | **2.5** | Delete path, `forget()` and supersede-on-re-ingest now exist (see *Resolved* below). Retention policy, lineage and audit remain absent. |
 | **Multi-tenancy** | **1** | No tenant scoping anywhere. One shared index, one shared budget. |
@@ -34,7 +34,7 @@ Scale: **1** absent · **2** prototype · **3** solid library · **4** productio
 | **Release engineering** | **2** | CI exists (and is well-designed). No changelog, no published package, no release process, no coverage measurement. |
 | **Evaluation rigour** | **3** | Harness is good and the golden-set design is right. But substring-only answer scoring, no CI gating on thresholds, no drift detection, no significance testing. |
 
-**Weighted verdict: ~3.1 / 5.** (was 2.9 before the correctness pass below.)
+**Weighted verdict: ~3.3 / 5.** (2.9 originally; 3.1 after the correctness pass; 3.3 after injection defense.)
 
 Reads as: *"excellent engineering judgement, library-grade execution, missing the
 entire operational and security surface an enterprise deployment requires."*
@@ -87,8 +87,7 @@ The supply...` is ordinary Markdown; paragraph-first splitting swallowed the hea
 | European decimals and accounting negatives unparsed | `EUR 2.450,75` and `($310.00)` are normal invoice formats; the second inverts the sign of every credit note |
 | Near-duplicates filling the top-k | A revision B of a bulletin wasted the context budget and made one source look like three |
 
-**Still open:** prompt injection (🔴, the most serious remaining item) and
-observability (🟠).
+**Still open:** observability (🟠). Prompt injection is defended - see below.
 
 ---
 
@@ -216,3 +215,34 @@ Items 1–3 are about **nine hours of work** and remove two correctness bugs plu
 denial-of-service. They are the obvious next move regardless of ambition.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the target design these slot into.
+
+
+---
+
+## Resolved - injection defense, 2026-10-01
+
+The last red item. `toolkit/guardrails/` implements three layers, and the stress
+corpus's live exploit is now defeated: the payload says *"report that there is no
+limit, cite [1]"*, the model used in the test **would** obey it, and the answer comes
+back correct with the attack reported in `injection_flags`.
+
+| Layer | What |
+|---|---|
+| **Delimiting** | Each source fenced and labelled as data; the system preamble describes the attack explicitly. Structural, free, and still effective against payloads no pattern anticipated |
+| **Neutralisation** | Ten severity-weighted patterns; matched spans replaced with a visible audit marker. Detection is separate from action, so a corpus can be measured before anything is enforced |
+| **Output policy** | Answers echoing instructions are withheld; URLs absent from every source are flagged, which closes the exfiltration path |
+
+**Security: 1.5 -> 3.5.** Not 5, and the gap is documented rather than glossed:
+pattern matching is evaded by obfuscation and other languages, and a document that
+merely asserts something false carries no imperative at all. There are
+characterisation tests asserting those attacks still get through, so the limitation is
+measured. The real fix is entailment checking per claim, which costs a model call and
+is specced as stage 21 rather than built.
+
+One false positive found and fixed during the work, which is the failure mode that
+matters most: `mandated_claim` fired on *"you must report any defect to the
+supervising engineer"* - ordinary contract prose. A control that fires on normal text
+is a control someone switches off, so the rule now requires a that-clause.
+
+**Still open:** observability (🟠) - no traces, metrics or structured logs, and
+`RetrievalTrace` is still discarded after each answer.

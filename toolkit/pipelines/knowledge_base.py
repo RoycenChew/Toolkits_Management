@@ -38,6 +38,8 @@ from ..durable_steps import (
     Step,
     WorkflowRequest,
 )
+from ..guardrails import SYSTEM_PREAMBLE, GuardrailComponent
+from ..guardrails.models import ShieldedSource
 from ..hybrid_ranker import (
     FusionConfig,
     FusionMethod,
@@ -113,6 +115,7 @@ class KnowledgeBase:
         self.chunk_config = chunk_config or ChunkConfig()
         self._chunker = ChunkerComponent(embedder=self.embedder)
         self._ranker = HybridRankerComponent()
+        self._guard = GuardrailComponent()
         self._chunks: dict[str, Chunk] = {}
         self._doc_paths: dict[str, str] = {}
         self._path_docs: dict[str, str] = {}
@@ -625,41 +628,129 @@ class KnowledgeBase:
         trace: RetrievalTrace,
         cfg: AskConfig,
     ) -> Answer:
-        messages = [
-            Message("system", _SYSTEM_PROMPT),
-            Message(
-                "user",
-                "Sources:\n\n"
-                + self._context(selected, cfg)
-                + "\n\nQuestion: "
-                + query.strip(),
-            ),
-        ]
         llm = self.llm
         if llm is None:
             return self._extractive(selected, scores, trace)
+
+        # Shield before the text ever reaches a prompt. Fencing each source and
+        # stating that fenced content is data is the layer that still works
+        # against a payload no pattern anticipated; neutralisation is the
+        # heuristic on top.
+        shield = self._guard.shield(
+            {str(i): c.text for i, c in enumerate(selected, start=1)},
+            cfg.guardrails,
+        )
+        injection_flags = [f.render() for f in shield.findings]
+
+        if shield.refused:
+            return Answer(
+                text=(
+                    "A retrieved document contains an embedded instruction, so this"
+                    " question was not answered."
+                ),
+                citations=[],
+                chunks=list(selected),
+                trace=trace,
+                grounded=False,
+                injection_flags=injection_flags,
+            )
+
+        kept = shield.included
+        if not kept:
+            return Answer(
+                text=(
+                    "Every relevant passage was withheld because it contained an"
+                    " embedded instruction."
+                ),
+                citations=[],
+                chunks=list(selected),
+                trace=trace,
+                grounded=False,
+                injection_flags=injection_flags,
+            )
+
+        # Citation markers must keep pointing at the chunks they were numbered
+        # for, so excluding a source renumbers the prompt and this map carries
+        # the correspondence back. Getting this wrong would attach a real page
+        # number to the wrong passage, which is the exact failure the verifier
+        # exists to prevent.
+        visible: list[Chunk] = []
+        for source in kept:
+            visible.append(selected[int(source.source_id) - 1])
+        renumbered = [
+            ShieldedSource(
+                source_id=str(position),
+                text=self._label(visible[position - 1], source.text),
+                original_text=source.original_text,
+                findings=source.findings,
+            )
+            for position, source in enumerate(kept, start=1)
+        ]
+
+        context = self._guard.render_context(
+            renumbered, cfg.guardrails, cfg.context_char_limit
+        )
+        system = (
+            SYSTEM_PREAMBLE + "\n\n" + _SYSTEM_PROMPT
+            if cfg.guardrails.delimit_sources
+            else _SYSTEM_PROMPT
+        )
+        messages = [
+            Message("system", system),
+            Message("user", "Sources:\n\n" + context + "\n\nQuestion: " + query.strip()),
+        ]
         completion = llm.complete(messages, cfg.temperature, cfg.max_tokens)
+
+        policy = self._guard.check_output(
+            completion.text, [s.text for s in renumbered], cfg.guardrails
+        )
+        policy_flags = [f.rule + ": " + f.detail for f in policy.findings]
+
+        if policy.should_refuse:
+            # The model echoed injected instructions back. That is strong
+            # evidence the attack worked, and returning the answer is worse than
+            # refusing it.
+            return Answer(
+                text=(
+                    "The generated answer was withheld because it reproduced an"
+                    " instruction embedded in a source document."
+                ),
+                citations=[],
+                chunks=list(visible),
+                usage=completion.usage or Usage(),
+                trace=trace,
+                grounded=False,
+                injection_flags=injection_flags,
+                policy_flags=policy_flags,
+            )
 
         # Verify every marker against what the model was actually shown. A marker
         # outside that range means the model invented a source, which is the one
         # failure worth surfacing loudly rather than rendering as a citation.
         cited = [int(m) for m in _MARKER.findall(completion.text)]
-        valid = [n for n in dict.fromkeys(cited) if 1 <= n <= len(selected)]
-        unverified = sorted({n for n in cited if not 1 <= n <= len(selected)})
+        valid = [n for n in dict.fromkeys(cited) if 1 <= n <= len(visible)]
+        unverified = sorted({n for n in cited if not 1 <= n <= len(visible)})
 
         citations = [
-            self._citation(n, selected[n - 1], scores.get(selected[n - 1].chunk_id, 0.0))
+            self._citation(n, visible[n - 1], scores.get(visible[n - 1].chunk_id, 0.0))
             for n in valid
         ]
         return Answer(
             text=completion.text,
             citations=citations,
-            chunks=list(selected),
+            chunks=list(visible),
             usage=completion.usage or Usage(),
             trace=trace,
             grounded=bool(citations),
+            injection_flags=injection_flags,
+            policy_flags=policy_flags,
             unverified_markers=unverified,
         )
+
+    def _label(self, chunk: Chunk, text: str) -> str:
+        prov = chunk.provenances[0] if chunk.provenances else None
+        return ("(page " + str(prov.page) + ")\n" + text) if prov else text
+
 
     # --- introspection ----------------------------------------------------
 

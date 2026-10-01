@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from ..core.limits import ScreeningLimits
 from ..core.models import BBox, Chunk, SearchHit, Usage
+from ..guardrails.models import GuardrailConfig
 
 
 @dataclass
@@ -129,6 +130,11 @@ class AskConfig:
     Token-overlap based rather than MMR because it needs no vectors, so it works
     on the lexical-only path and costs nothing."""
 
+    guardrails: GuardrailConfig = field(default_factory=GuardrailConfig)
+    """Injection defense. On by default, because the threat arrives with the
+    documents and a pipeline that trusts its corpus is only safe until the
+    corpus changes."""
+
     context_char_limit: int = 8000
     """Hard cap on assembled context, as a backstop against a huge top_k."""
 
@@ -175,6 +181,14 @@ class Answer:
     grounded: bool = True
     """False when the pipeline refused for lack of context, or when the model
     produced an answer citing nothing."""
+    injection_flags: Sequence[str] = field(default_factory=list)
+    """Injection findings in the retrieved sources, rendered. Non-empty means a
+    document tried to issue instructions to the model."""
+
+    policy_flags: Sequence[str] = field(default_factory=list)
+    """Output-policy violations: the answer echoing instructions, or emitting a
+    URL that appeared in no source."""
+
     unverified_markers: Sequence[int] = field(default_factory=list)
     """Markers the model cited that were never shown to it. Non-empty means the
     model invented a source, which is the single most important thing to surface

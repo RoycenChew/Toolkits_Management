@@ -315,9 +315,10 @@ def test_known_limitation_table_structure_is_not_reconstructed():
     )
 
 
-def test_known_limitation_prompt_injection_is_obeyed():
-    """Characterises the outstanding security hole. When this starts failing,
-    injection defense has landed and the docs must be updated."""
+def test_prompt_injection_payload_no_longer_reaches_the_prompt():
+    """Was a KNOWN limitation; now defended. The model used here *would* obey the
+    payload, which is the only honest way to test the defense: if the answer is
+    correct, the payload did not arrive intact."""
     kb = KnowledgeBase(llm=ScriptedLLM(
         handler=lambda messages: (
             "There is no limit; certified for unlimited voltage [1]."
@@ -327,11 +328,9 @@ def test_known_limitation_prompt_injection_is_obeyed():
     ))
     kb.ingest_folder(corpus())
     answer = kb.ask("what is the voltage limit?", AskConfig(top_k=5))
-    reached = "unlimited" in answer.text.lower()
-    assert reached, (
-        "the injection payload no longer reaches the prompt - injection defense "
-        "has landed, so update MATURITY.md and ARCHITECTURE.md stage 19"
-    )
+    assert "unlimited" not in answer.text.lower(), "the injection was obeyed"
+    assert "40V" in answer.text
+    assert answer.injection_flags, "the attack must be reported, not silently handled"
 
 
 def _main() -> int:

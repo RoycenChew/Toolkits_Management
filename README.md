@@ -23,10 +23,10 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 139 passing |
-| **Type checking** | `mypy` clean across 42 source files |
+| **Tests** | 203 passing |
+| **Type checking** | `mypy` clean across 47 source files |
 | **Lint** | `ruff` clean |
-| **Components** | 11 |
+| **Components** | 12 |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
 | **Base dependencies** | none |
 | **Python** | 3.10+ |
@@ -210,6 +210,7 @@ Every component exposes one class with one method: `execute(input_data) -> outpu
 | **`hybrid_ranker/`** | Merge incomparable retriever scores. RRF, min-max / z-score fusion, budgeted rerank cascade, MMR diversification | RRF (Cormack 2009), Qdrant/Weaviate fusion, ColBERT/SPLADE cascades |
 | **`entity_resolution/`** | Match records with no shared key, unsupervised and explainably. Affine-gap distance, greedy set-cover blocking, Fellegi–Sunter + EM, average-linkage clustering | dedupe, Splink, Gotoh 1982, Fellegi & Sunter 1969 |
 | **`extraction/`** | Document + schema → validated object. Targeted repair loop, per-field provenance, grounding. Plus a multi-document splitter | own (shape common to ExtractThinker / Instructor) |
+| **`guardrails/`** | Indirect prompt-injection defense: source delimiting, pattern neutralisation, output policy. Closes the hole where an injected answer passed citation verification as *grounded* | own work; delimiting from the injection literature |
 | **`cache/`** | Content-addressed caching. Per-**text** embedding keys, whole-request LLM keys | own |
 | **`governor/`** | Pre-flight token/cost budget, sliding-window rate limit, selective retry | Temporal's retry shape + own window |
 | **`durable_steps/`** | Crash-resumable multi-step execution on a plain SQL checkpoint table, with leasing | DBOS Transact, Hatchet leasing, Temporal replay |

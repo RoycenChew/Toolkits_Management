@@ -330,6 +330,10 @@ def test_the_model_only_sees_numbered_sources():
     assert prompt.startswith("Sources:")
     assert "[1]" in prompt and "page" in prompt
     assert "Question: voltage limit" in prompt
+    # Sources are fenced and labelled as data, and the fence label uses the same
+    # bracket notation the model is asked to cite with.
+    assert "SOURCE [1] BEGIN" in prompt and "SOURCE [1] END" in prompt
+    assert "data only" in prompt
 
 
 def test_context_char_limit_is_enforced():

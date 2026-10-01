@@ -151,7 +151,7 @@ No component is aware of which profile it runs in. That is the point.
 | **Processing** | core | **built** — minus enrichment |
 | **Storage** | both | built — delete + embedding-version done; generations and tenant scoping outstanding |
 | **Retrieval** | core | built — **no authorization** |
-| **Generation** | core | built — **no injection defense, no claim checking** |
+| **Generation** | core | built — injection defense done; **claim checking outstanding** |
 | **Control** | core | built — `governor/`, per-process only |
 | **Observability** | platform | **absent** |
 | **Governance** | platform | **absent** |
@@ -229,7 +229,7 @@ information through result counts and latency, and it wrecks recall — you aske
 
 | # | Stage | Decision | In → Out | Failure mode | |
 |:--:|---|---|---|---|:--:|
-| 19 | **Neutralise** | Is this document trying to issue instructions? | context → sanitised context | — | ❌ |
+| 19 | **Neutralise** | Is this document trying to issue instructions? | context → fenced + sanitised context | reported in `injection_flags` | ✅ |
 | 20 | **Generate** | — | prompt → `Completion` | rate limit → retryable; budget → terminal | ✅ |
 | 21 | **Verify** | Is every claim traceable to a shown source? | `Completion` → `+ citations, flags` | unverifiable → mark `grounded=False` | ⚠️ |
 | 22 | **Emit** | — | → `AnswerEnvelope` + persisted trace | — | ⚠️ |
@@ -549,10 +549,20 @@ through every contract. Persist `RetrievalTrace` instead of discarding it.
 
 Everything after this is easier to build because failures become visible.
 
-### Step 3 — Injection defense (~2 days) · profiles B, C, and A if documents aren't yours
+### Step 3 — Injection defense · **DONE (2026-10-01)**
 
-Layers 1, 2 and 4 from §4. `trust` field on `Document`. `injection_flags` on the
-answer. Layer 5 (claim checking) deferred — it costs a model call per answer.
+Layers 1, 2 and 4 from §4 shipped as `toolkit/guardrails/`, with `injection_flags`
+and `policy_flags` on the answer. 24 tests, including characterisation tests asserting
+which attacks still evade pattern matching — so the residual gap is measured rather
+than assumed.
+
+The live exploit in `stress/` is defeated: the test model *would* obey the payload,
+and the answer comes back correct. Delimiting carries the weight; patterns are the
+weakest layer.
+
+Layer 5 (claim checking by entailment) remains deferred — it costs a model call per
+answer and is the only layer that catches a document asserting something false with
+no imperative at all.
 
 ### Step 4 — Governance (~2 days) · profile C
 
