@@ -40,20 +40,47 @@ _ABBREVIATION = re.compile(
 )
 
 
+def _is_cjk(char: str) -> bool:
+    code = ord(char)
+    return (
+        0x4E00 <= code <= 0x9FFF      # CJK unified ideographs
+        or 0x3400 <= code <= 0x4DBF   # extension A
+        or 0x3040 <= code <= 0x30FF   # hiragana + katakana
+        or 0xAC00 <= code <= 0xD7AF   # hangul syllables
+        or 0xF900 <= code <= 0xFAFF   # compatibility ideographs
+    )
+
+
 def estimate_tokens(text: str) -> int:
     """Rough token count with no tokenizer.
 
-    Takes the larger of two crude signals — characters over four, and words times
-    1.3 — because each fails in a different direction: the character rule
-    underestimates text with many short words, the word rule underestimates long
-    technical terms that split into several tokens. Overestimating slightly is
-    the safe error for a budget.
+    Two crude signals for space-separated text — characters over four, and words
+    times 1.3 — and the larger wins, because each fails in a different
+    direction: the character rule underestimates text with many short words, the
+    word rule underestimates long technical terms that split into several
+    tokens. Overestimating slightly is the safe error for a budget.
+
+    **CJK is counted separately, at roughly one token per character.** Both
+    heuristics fail catastrophically otherwise: Chinese and Japanese have no
+    spaces, so the word arm collapses to 1, and the chars/4 arm underestimates
+    by about 4x. Measured on the stress corpus, a 478-token Chinese passage was
+    estimated at 133 — so every chunk silently overran the embedding window and
+    the budget was meaningless for any non-Latin document.
     """
     stripped = text.strip()
     if not stripped:
         return 0
-    words = len(stripped.split())
-    return max(1, int(max(len(stripped) / 4.0, words * 1.3)))
+
+    cjk = sum(1 for char in stripped if _is_cjk(char))
+    if not cjk:
+        words = len(stripped.split())
+        return max(1, int(max(len(stripped) / 4.0, words * 1.3)))
+
+    # Mixed text: score each script with the rule that suits it, then add.
+    rest = "".join(char for char in stripped if not _is_cjk(char))
+    rest_words = len(rest.split())
+    rest_tokens = max(len(rest) / 4.0, rest_words * 1.3) if rest.strip() else 0.0
+    return max(1, int(cjk + rest_tokens))
 
 
 def split_sentences(text: str) -> list[str]:

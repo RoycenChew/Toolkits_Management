@@ -24,9 +24,12 @@ from .models import (
     SearchHit,
     Usage,
 )
+from .text import dehyphenate, normalise_text
 
 __all__ = [
     "AdapterError",
+    "dehyphenate",
+    "normalise_text",
     "ScreeningFailure",
     "ScreeningLimits",
     "ScreeningRejected",

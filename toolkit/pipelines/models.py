@@ -117,6 +117,18 @@ class AskConfig:
     no vocabulary with the source. That is a precision-for-recall trade, and it is
     the right default for a document-grounded system — a wrong confident answer
     costs more than an admitted miss."""
+    dedupe_threshold: float = 0.9
+    """Drop a selected chunk whose wording overlaps an already-selected one by
+    more than this fraction. 1.0 disables it.
+
+    Near-duplicate documents are normal — a revision B of a bulletin, a contract
+    and its appendix copy, the same policy on two intranet pages. Without this,
+    a top-3 fills with the same passage three times, which wastes the context
+    budget and makes the answer look well-sourced when it has one source.
+
+    Token-overlap based rather than MMR because it needs no vectors, so it works
+    on the lexical-only path and costs nothing."""
+
     context_char_limit: int = 8000
     """Hard cap on assembled context, as a backstop against a huge top_k."""
 

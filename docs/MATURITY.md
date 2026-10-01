@@ -67,6 +67,26 @@ The supply must not...` is ordinary, valid Markdown
    the body, which wiped out heading levels and every downstream breadcrumb.
    Now line-oriented.
 
+### Adversarial corpus, 2026-10-01
+
+A deliberately hostile 12-document corpus (`stress/`) was built to attack specific
+assumptions rather than to be survived. It found **ten real defects**, now all fixed
+and pinned by 21 regression tests:
+
+| Defect | Why it mattered |
+|---|---|
+| Two-column pages spliced into single lines | A full-width title straddles the gutter and a centred page number bridges it, so no zero-ink gap exists. The abstract and the introduction landed in one block. Needed a row-density gutter plus horizontal band cuts |
+| Tables torn apart by the new column detector | A table *is* multi-column by geometry. Extent cannot distinguish it from prose; ink density can (prose ~0.8, table rows ~0.3) |
+| Numbered section headings classified as list items | `2. Method` matches the ordered-list pattern. Destroyed the hierarchy of every document that numbers its sections |
+| Hyphenated line breaks never rejoined | `custo-` + `mer` matched nothing and read as broken text |
+| Running headers on short documents indexed as body | The flat `>= 3 pages` rule gave two-page documents no furniture detection at all |
+| Ligatures, nbsp, zero-width and soft hyphens unnormalised | `conﬁguration` is unsearchable as configuration, and both render identically so it is invisible by eye |
+| Markdown headings without a following blank line discarded | `## Voltage
+The supply...` is ordinary Markdown; paragraph-first splitting swallowed the heading and every breadcrumb |
+| CJK token estimate 3.6x too low | No spaces means the word arm collapses to 1 and chars/4 underestimates ~4x, so chunks silently overran the embedding window for every non-Latin document |
+| European decimals and accounting negatives unparsed | `EUR 2.450,75` and `($310.00)` are normal invoice formats; the second inverts the sign of every credit note |
+| Near-duplicates filling the top-k | A revision B of a bulletin wasted the context budget and made one source look like three |
+
 **Still open:** prompt injection (🔴, the most serious remaining item) and
 observability (🟠).
 

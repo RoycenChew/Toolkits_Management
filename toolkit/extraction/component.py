@@ -41,7 +41,13 @@ _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TRUE = frozenset({"true", "yes", "y", "1"})
 _FALSE = frozenset({"false", "no", "n", "0"})
-_NUMBER_NOISE = re.compile(r"[,\s$£€]")
+_CURRENCY = re.compile(
+    r"[$£€¥₹]|" + r"\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b",
+    re.IGNORECASE,
+)
+"""Currency symbols and ISO codes, stripped before numeric parsing. The word
+boundaries matter: without them "inr" would match inside an ordinary word."""
+_NUMBER_NOISE = re.compile(r"[,\s$£€¥₹]")
 
 _SYSTEM = (
     "You extract structured data from documents. Return a single JSON object and "
@@ -112,6 +118,70 @@ def _normalise(text: Any) -> str:
     """Lowercase and collapse whitespace. Accepts non-strings because extracted
     values are compared against source text as their rendered form."""
     return " ".join(str(text).lower().split())
+
+
+def _parse_number(raw: str) -> float | None:
+    """Parse a money-shaped string into a float.
+
+    Handles three things the naive strip-commas approach gets wrong, all found
+    in the stress corpus:
+
+    * **European notation.** "2.450,75" means 2450.75, not 2.45075. The rule
+      that disambiguates is positional, not locale-based: when both separators
+      appear, the **rightmost** one is the decimal point. That holds for both
+      conventions and needs no locale guess.
+    * **Accounting negatives.** "($310.00)" is -310. Parentheses are how
+      finance writes a negative, and dropping them inverts the sign of every
+      credit note.
+    * **Currency words and codes.** "EUR 2.450,75" and "USD 1,240.50".
+
+    A single separator is ambiguous in principle — "1.234" is 1234 in Germany
+    and 1.234 elsewhere. Resolved by digit grouping: exactly three digits after
+    a lone separator is read as a thousands group, which is the convention that
+    makes "1.234" and "1,234" both mean 1234.
+    """
+    text = raw.strip()
+    if not text:
+        return None
+
+    negative = False
+    if text.startswith("(") and text.endswith(")"):
+        negative = True
+        text = text[1:-1].strip()
+    text = _CURRENCY.sub("", text).strip()
+    if text.startswith("-"):
+        negative = not negative
+        text = text[1:].strip()
+    text = text.replace(" ", "").replace(" ", "")
+    if not text:
+        return None
+
+    last_dot = text.rfind(".")
+    last_comma = text.rfind(",")
+    if last_dot >= 0 and last_comma >= 0:
+        # Both present: the rightmost separator is the decimal point.
+        if last_comma > last_dot:
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif last_comma >= 0:
+        tail = text[last_comma + 1 :]
+        text = (
+            text.replace(",", "")
+            if len(tail) == 3 and tail.isdigit()
+            else text.replace(",", ".")
+        )
+    elif last_dot >= 0:
+        tail = text[last_dot + 1 :]
+        if len(tail) == 3 and tail.isdigit() and text.count(".") >= 1 and len(text) > 4:
+            # "2.450" with no other separator: a thousands group.
+            text = text.replace(".", "")
+
+    try:
+        value = float(text)
+    except ValueError:
+        return None
+    return -value if negative else value
 
 
 class ExtractionComponent:
@@ -423,13 +493,13 @@ class ExtractionComponent:
             if isinstance(value, (int, float)):
                 number: float | int = value
             elif cfg.coerce and isinstance(value, str):
-                # Models return "1,234.50" and "$1234.50"; stripping the noise
-                # locally is cheaper than spending a repair round on formatting.
-                cleaned = _NUMBER_NOISE.sub("", value)
-                try:
-                    number = float(cleaned)
-                except ValueError:
+                # Models return "1,234.50", "$1234.50", "EUR 2.450,75" and
+                # "($310.00)". Normalising locally is cheaper than spending a
+                # repair round on formatting.
+                parsed = _parse_number(value)
+                if parsed is None:
                     return value, ValidationIssue(path, "expected a number", value)
+                number = parsed
             else:
                 return value, ValidationIssue(path, "expected a number", value)
             if kind is FieldType.INTEGER:
@@ -465,16 +535,14 @@ class ExtractionComponent:
         if match:
             year, month, day = match.groups()
             return year + "-" + month.zfill(2) + "-" + day.zfill(2)
-        months = {
-            name: index
-            for index, name in enumerate(
-                [
-                    "january", "february", "march", "april", "may", "june",
-                    "july", "august", "september", "october", "november", "december",
-                ],
-                start=1,
-            )
-        }
+        names = [
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december",
+        ]
+        months = {name: index for index, name in enumerate(names, start=1)}
+        # Documents write "Mar 16, 2024" far more often than "March 16, 2024",
+        # and the full-name-only lookup silently failed on every abbreviation.
+        months.update({name[:3]: index for index, name in enumerate(names, start=1)})
         match = re.fullmatch(
             r"(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})", text
         ) or re.fullmatch(r"([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})", text)
@@ -484,7 +552,8 @@ class ExtractionComponent:
                 day, month_name, year = groups
             else:
                 month_name, day, year = groups
-            month = months.get(month_name.lower()[:20])
+            lowered = month_name.lower().rstrip('.')
+            month = months.get(lowered) or months.get(lowered[:3])
             if month:
                 return year + "-" + str(month).zfill(2) + "-" + day.zfill(2)
         return None

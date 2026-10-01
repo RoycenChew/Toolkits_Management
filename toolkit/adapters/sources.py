@@ -27,6 +27,7 @@ from ..core.limits import (
     ScreeningResult,
 )
 from ..core.models import BBox, Block, BlockType, Document, Provenance
+from ..core.text import normalise_text
 from ..doc_layout import BBox as LayoutBBox
 from ..doc_layout import BlockType as LayoutBlockType
 from ..doc_layout import DocLayoutComponent, LayoutConfig, LayoutRequest, TextSpan
@@ -95,7 +96,11 @@ class PlainTextSource:
         self.screen(path, limits or ScreeningLimits()).raise_if_rejected()
         with open(path, "rb") as handle:
             raw = handle.read()
-        text = raw.decode("utf-8", errors="replace")
+        # Normalised at the boundary, keeping newlines because this source is
+        # line-structured. Every downstream component then sees clean text.
+        text = normalise_text(
+            raw.decode("utf-8", errors="replace"), collapse_whitespace=False
+        )
         blocks: list[Block] = []
         paragraph: list[str] = []
 
@@ -241,7 +246,7 @@ class PdfPlumberSource:
                     extra_attrs=["size", "fontname"], use_text_flow=False
                 )
                 for word in words:
-                    text = str(word.get("text", "")).strip()
+                    text = normalise_text(str(word.get("text", "")))
                     if not text:
                         continue
                     font = str(word.get("fontname", ""))
@@ -370,7 +375,7 @@ class DoclingSource:
         pages: set[int] = set()
 
         for item in self._iter_items(doc):
-            text = (getattr(item, "text", "") or "").strip()
+            text = normalise_text(getattr(item, "text", "") or "")
             if not text:
                 continue
             label = str(getattr(item, "label", "") or "")

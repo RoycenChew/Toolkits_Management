@@ -414,9 +414,10 @@ class KnowledgeBase:
         if cfg.relevance_gate and not self._is_relevant(query, dense, lexical, cfg):
             dense, lexical = [], []
         fused = self._fuse(query, dense, lexical, cfg)
-        selected = [
+        candidates = [
             self._chunks[hit.id] for hit in fused.items if hit.id in self._chunks
-        ][: cfg.top_k]
+        ]
+        selected = self._distinct(candidates, cfg)[: cfg.top_k]
         scores = {hit.id: hit.score for hit in fused.items}
 
         trace = RetrievalTrace(
@@ -444,6 +445,32 @@ class KnowledgeBase:
         if self.llm is None:
             return self._extractive(selected, scores, trace)
         return self._generated(query, selected, scores, trace, cfg)
+
+    def _distinct(self, chunks: Sequence[Chunk], cfg: AskConfig) -> list[Chunk]:
+        """Drop near-duplicates, preserving rank order.
+
+        Applied before the top_k cut rather than after, so a suppressed
+        duplicate is replaced by the next distinct result instead of shrinking
+        the context. Comparing against every kept chunk is O(k^2) in the
+        selected set, which is fine at k in the tens.
+        """
+        if cfg.dedupe_threshold >= 1.0:
+            return list(chunks)
+        kept: list[Chunk] = []
+        signatures: list[set[str]] = []
+        for chunk in chunks:
+            words = set(chunk.text.lower().split())
+            if not words:
+                continue
+            if any(
+                len(words & seen) / min(len(words), len(seen)) > cfg.dedupe_threshold
+                for seen in signatures
+                if seen
+            ):
+                continue
+            kept.append(chunk)
+            signatures.append(words)
+        return kept
 
     def _retrieve(
         self, query: str, cfg: AskConfig

@@ -49,6 +49,72 @@ _CAPTION = re.compile(
 _SENTENCE_END = re.compile(r"[.!?:;\"â€â€™)]\s*$")
 
 
+def _hyphen_break(left: str, right: str) -> bool:
+    """Is the trailing hyphen on `left` a justification break rather than part
+    of a compound word?
+
+    Inlined rather than imported from `core.text` so this component keeps its
+    independently-copyable property — doc_layout imports nothing from the
+    toolkit package. Conservative on purpose: only a lowercase continuation
+    counts, so `self-
+Service` keeps its hyphen and `40-
+50` is untouched.
+    """
+    if not left.endswith("-") or len(left) < 2:
+        return False
+    if not left[-2].isalpha():
+        return False
+    return bool(right) and right[0].isalpha() and right[0].islower()
+
+
+def _join_lines(lines: Sequence[str]) -> str:
+    """Merge a block's lines, rejoining words split by justification.
+
+    PDFs break `custo-
+mer` and `conse-
+quential` constantly. Joined with a
+    space, neither half matches a query and the chunk reads as broken text; the
+    stress corpus had five such words in a single short contract. Only a
+    lowercase continuation is treated as a break, so genuine compounds survive.
+    """
+    out = ""
+    for raw in lines:
+        piece = raw.strip()
+        if not piece:
+            continue
+        if not out:
+            out = piece
+            continue
+        out = out[:-1] + piece if _hyphen_break(out, piece) else out + " " + piece
+    return out.strip()
+
+
+class _Row:
+    """A provisional horizontal row of spans, used only for column geometry.
+
+    Distinct from `_Line`: a row may legitimately span two columns while the
+    geometry is still unknown, which is exactly the signal `_find_gutter` needs.
+    Real lines are assembled per column once reading order has been decided.
+    """
+
+    __slots__ = ("items", "bbox")
+
+    def __init__(self, index: int, span: TextSpan) -> None:
+        self.items: list[tuple[int, TextSpan]] = [(index, span)]
+        self.bbox = span.bbox
+
+    def add(self, index: int, span: TextSpan) -> None:
+        self.items.append((index, span))
+        self.bbox = self.bbox.merge(span.bbox)
+
+    @property
+    def font_size(self) -> float:
+        total = sum(len(span.text) for _, span in self.items)
+        if total == 0:
+            return self.items[0][1].font_size
+        return sum(span.font_size * len(span.text) for _, span in self.items) / total
+
+
 class _Line:
     """A horizontal run of spans that belong to the same visual line."""
 
@@ -293,78 +359,283 @@ class DocLayoutComponent:
 
     # --- recursive XY-cut ------------------------------------------------
 
+    def _rows(
+        self, items: Sequence[tuple[int, TextSpan]], cfg: LayoutConfig
+    ) -> list[_Row]:
+        """Group spans into provisional rows by vertical overlap.
+
+        Column detection has to reason about rows, not spans. Extractors emit
+        one span per *word*, so a full-width title is not a single wide object
+        that obviously crosses a gutter - it is six narrow words, some left of
+        the gutter and some right, which a span-level cut happily tears in half.
+        Rows restore the geometry the page actually has.
+
+        These rows are provisional and used only for geometry. Real line
+        assembly happens per column afterwards, once reading order is known.
+        """
+        ordered = sorted(items, key=lambda pair: (pair[1].bbox.y0, pair[1].bbox.x0))
+        rows: list[_Row] = []
+        for index, span in ordered:
+            placed = False
+            for row in reversed(rows[-3:]):
+                if span.bbox.vertical_overlap(row.bbox) >= cfg.line_overlap_threshold:
+                    row.add(index, span)
+                    placed = True
+                    break
+            if not placed:
+                rows.append(_Row(index, span))
+        rows.sort(key=lambda row: (row.bbox.y0, row.bbox.x0))
+        return rows
+
+    def _row_spans_gutter(self, row: _Row, gutter: float, min_gap: float) -> bool:
+        """Does this row genuinely run across the gutter, or is it two columns?
+
+        The distinction that makes two-column detection work. Both cases have
+        ink on either side of the gutter, so extent alone cannot tell them
+        apart:
+
+        * A **full-width title** has inter-word gaps of a few points. The gutter
+          falls inside one of them, or inside a word.
+        * **Two column lines sharing a baseline** have a gap of tens of points
+          at exactly that position.
+
+        Comparing the gap containing the gutter against `min_gap` separates
+        them. Without this test, a layout whose columns share baselines makes
+        every row look full-width, and an earlier version abandoned the split
+        for precisely that reason.
+        """
+        ordered = sorted((span for _, span in row.items), key=lambda s: s.bbox.x0)
+        cursor = ordered[0].bbox.x1
+        for span in ordered[1:]:
+            if cursor <= gutter <= span.bbox.x0:
+                return (span.bbox.x0 - cursor) < min_gap
+            cursor = max(cursor, span.bbox.x1)
+        # The gutter sits inside a word: unambiguously a spanning row.
+        return True
+
     def _xy_cut(
         self,
         items: Sequence[tuple[int, TextSpan]],
         page_size: tuple[float, float] | None,
         cfg: LayoutConfig,
+        depth: int = 0,
     ) -> list[list[tuple[int, TextSpan]]]:
-        """Split a region into columns by looking for a vertical whitespace gutter.
+        """Decompose a region into columns, in reading order.
 
-        Classic XY-cut alternates horizontal and vertical projection cuts. Here
-        only the vertical cut is needed, because the horizontal structure is
-        recovered afterwards by line assembly and paragraph grouping. The guard
-        that matters in practice is `min_column_width_ratio`: without it every
-        table gutter and every indented block is promoted to a column and the
-        reading order shatters.
+        Classic XY-cut alternates vertical and horizontal projection cuts. Three
+        earlier versions of this were wrong in ways the stress corpus exposed:
+
+        1. **Vertical cuts only.** A full-width title straddles the gutter, the
+           straddle check refused to split, and the two columns were spliced
+           into single lines - the abstract and the introduction in one block.
+        2. **Requiring a zero-ink gap.** A centred page number in the footer
+           sits in the gutter and bridges it, so no clean whitespace column
+           existed anywhere on the page and detection failed outright.
+        3. **Treating any crossing row as full-width.** Columns that share
+           baselines make every row cross, so the guard against over-splitting
+           killed the very case it was meant to serve.
+
+        What works: find the gutter by row *density*, then classify each crossing
+        row by the size of the gap at the gutter. Genuinely full-width rows force
+        a horizontal band cut; rows that merely share a baseline are split.
         """
-        if len(items) < 4:
+        if len(items) < 4 or depth > 6:
             return [list(items)]
         page_width = page_size[0] if page_size else max(s.bbox.x1 for _, s in items)
         if page_width <= 0:
             return [list(items)]
 
-        gutter = self._find_gutter(items, page_width, cfg)
+        rows = self._rows(items, cfg)
+        if len(rows) < 2:
+            return [list(items)]
+
+        gutter = self._find_gutter(rows, page_width, cfg)
         if gutter is None:
             return [list(items)]
 
-        left = [(i, s) for i, s in items if s.bbox.x1 <= gutter]
-        right = [(i, s) for i, s in items if s.bbox.x0 >= gutter]
-        # Spans straddling the gutter (a full-width heading, a spanning rule)
-        # mean this is not a clean multi-column region after all.
-        if len(left) + len(right) != len(items) or not left or not right:
+        min_gap = self._min_gap(rows, page_width, cfg)
+        spanning: list[_Row] = []
+        left: list[tuple[int, TextSpan]] = []
+        right: list[tuple[int, TextSpan]] = []
+
+        for row in rows:
+            if row.bbox.x1 <= gutter:
+                left.extend(row.items)
+            elif row.bbox.x0 >= gutter:
+                right.extend(row.items)
+            elif self._row_spans_gutter(row, gutter, min_gap):
+                spanning.append(row)
+            else:
+                for index, span in row.items:
+                    target = left if (span.bbox.x0 + span.bbox.x1) / 2 <= gutter else right
+                    target.append((index, span))
+
+        if not left or not right:
+            return [list(items)]
+        if len(spanning) > len(rows) // 2:
+            # Predominantly full-width: a single-column region whose rows happen
+            # to reach past the candidate.
+            return [list(items)]
+
+        if spanning:
+            return self._band_cut(rows, spanning, page_size, cfg, depth)
+
+        # Ink density is what separates text columns from a table. A table is
+        # genuinely multi-column by geometry - whitespace gutters between cells
+        # are real - so a density cut happily tears its rows apart, which is the
+        # one thing a table must not have done to it. Text lines fill most of
+        # their width; table cells occupy a small fraction of theirs. Extent
+        # cannot tell them apart, because a row of two cells has the same extent
+        # as a line of prose; ink can.
+        if min(self._ink_ratio(left, cfg), self._ink_ratio(right, cfg)) < 0.6:
             return [list(items)]
 
         out: list[list[tuple[int, TextSpan]]] = []
         for side in (left, right):
-            side_width = max(s.bbox.x1 for _, s in side) - min(
-                s.bbox.x0 for _, s in side
-            )
-            out.extend(self._xy_cut(side, (max(side_width, 1.0), 0.0), cfg))
+            width = max(s.bbox.x1 for _, s in side) - min(s.bbox.x0 for _, s in side)
+            out.extend(self._xy_cut(side, (max(width, 1.0), 0.0), cfg, depth + 1))
         return out
 
-    def _find_gutter(
+    def _ink_ratio(
+        self, items: Sequence[tuple[int, TextSpan]], cfg: LayoutConfig
+    ) -> float:
+        """Mean fraction of each row occupied by actual glyphs.
+
+        Prose runs about 0.8 or above: words with single spaces between them.
+        Table rows run nearer 0.3, because most of the row is the whitespace
+        between cells. Measured on the stress corpus, this is the cleanest
+        available signal for refusing to column-split a table.
+        """
+        rows = self._rows(items, cfg)
+        if not rows:
+            return 0.0
+        ratios = []
+        for row in rows:
+            extent = row.bbox.width
+            if extent <= 0:
+                continue
+            ink = sum(span.bbox.width for _, span in row.items)
+            ratios.append(min(1.0, ink / extent))
+        return sum(ratios) / len(ratios) if ratios else 0.0
+
+    def _band_cut(
         self,
-        items: Sequence[tuple[int, TextSpan]],
-        page_width: float,
+        rows: Sequence[_Row],
+        spanning: Sequence[_Row],
+        page_size: tuple[float, float] | None,
         cfg: LayoutConfig,
-    ) -> float | None:
-        intervals = sorted((s.bbox.x0, s.bbox.x1) for _, s in items)
-        median_char = max(
-            0.5 * (sum(s.font_size for _, s in items) / len(items)), 1.0
-        )
-        min_gap = max(
+        depth: int,
+    ) -> list[list[tuple[int, TextSpan]]]:
+        """Horizontal cut around full-width rows, then columns within each band.
+
+        Emits regions top-to-bottom, which is the order a human reads: material
+        above a full-width heading, then the heading, then material below it.
+        Consecutive full-width rows are grouped so a wrapped title stays one
+        region rather than becoming one region per line.
+        """
+        full = sorted(spanning, key=lambda row: row.bbox.y0)
+        rest = [row for row in rows if row not in spanning]
+
+        regions: list[list[tuple[int, TextSpan]]] = []
+        cursor = float("-inf")
+        index = 0
+        while index < len(full):
+            run = [full[index]]
+            while index + 1 < len(full) and (
+                full[index + 1].bbox.y0 - run[-1].bbox.y1
+                < 1.5 * max(run[-1].bbox.height, 1.0)
+            ):
+                index += 1
+                run.append(full[index])
+            boundary = run[0].bbox.y0
+
+            band = [r for r in rest if cursor <= r.bbox.center_y < boundary]
+            if band:
+                band_items = [pair for row in band for pair in row.items]
+                regions.extend(self._xy_cut(band_items, page_size, cfg, depth + 1))
+            regions.append([pair for row in run for pair in row.items])
+            cursor = run[-1].bbox.y1
+            index += 1
+
+        tail = [r for r in rest if r.bbox.center_y >= cursor]
+        if tail:
+            tail_items = [pair for row in tail for pair in row.items]
+            regions.extend(self._xy_cut(tail_items, page_size, cfg, depth + 1))
+        return [region for region in regions if region]
+
+    def _min_gap(
+        self, rows: Sequence[_Row], page_width: float, cfg: LayoutConfig
+    ) -> float:
+        median_char = max(0.5 * (sum(r.font_size for r in rows) / len(rows)), 1.0)
+        return max(
             cfg.column_gap_multiplier * median_char,
             cfg.min_gutter_ratio * page_width,
         )
-        min_width = cfg.min_column_width_ratio * page_width
 
-        cursor = intervals[0][1]
-        best_gap = 0.0
-        best_cut = None
-        for x0, x1 in intervals[1:]:
-            if x0 - cursor > best_gap:
-                left_width = cursor - intervals[0][0]
-                right_width = max(i[1] for i in intervals) - x0
-                if (
-                    x0 - cursor >= min_gap
-                    and left_width >= min_width
-                    and right_width >= min_width
-                ):
-                    best_gap = x0 - cursor
-                    best_cut = (cursor + x0) / 2.0
-            cursor = max(cursor, x1)
-        return best_cut
+    def _find_gutter(
+        self, rows: Sequence[_Row], page_width: float, cfg: LayoutConfig
+    ) -> float | None:
+        """Widest vertical band that few rows reach into.
+
+        Density rather than emptiness. Counting the *rows* that cover each x
+        position means a single footer page number sitting in the gutter raises
+        the count there to one, while a body column reaches a count of a dozen,
+        so the gutter is still clearly the minimum. Requiring strict emptiness
+        instead let one centred page number defeat column detection for a whole
+        page.
+
+        Coverage is counted from each row's spans, not its full extent, so a
+        full-width title contributes to every bin it actually has ink in and the
+        inter-word gaps inside it do not read as candidate gutters.
+        """
+        if not rows:
+            return None
+        bin_size = 4.0
+        bins = max(1, int(page_width / bin_size))
+        coverage = [0] * bins
+
+        for row in rows:
+            touched: set[int] = set()
+            for _, span in row.items:
+                start = max(0, int(span.bbox.x0 / bin_size))
+                end = min(bins - 1, int(span.bbox.x1 / bin_size))
+                touched.update(range(start, end + 1))
+            for index in touched:
+                coverage[index] += 1
+
+        # A gutter may be reached by at most this many rows. The floor of two is
+        # load-bearing: on a two-column page the gutter is routinely crossed by
+        # both a full-width title and a centred page number, and a floor of one
+        # rejected the only real gutter on the page.
+        tolerance = max(2, int(len(rows) * 0.15))
+        min_gap = self._min_gap(rows, page_width, cfg)
+        min_width = cfg.min_column_width_ratio * page_width
+        left_edge = min(r.bbox.x0 for r in rows)
+        right_edge = max(r.bbox.x1 for r in rows)
+
+        best: tuple[float, float] | None = None
+        index = 0
+        while index < bins:
+            if coverage[index] > tolerance:
+                index += 1
+                continue
+            start = index
+            while index < bins and coverage[index] <= tolerance:
+                index += 1
+            low, high = start * bin_size, index * bin_size
+            # Whitespace outside the text block is the page edge, not a gutter.
+            if low <= left_edge or high >= right_edge:
+                continue
+            if high - low < min_gap:
+                continue
+            centre = (low + high) / 2.0
+            if centre - left_edge < min_width or right_edge - centre < min_width:
+                continue
+            if best is None or (high - low) > best[1]:
+                best = (centre, high - low)
+
+        return None if best is None else best[0]
+
 
     # --- paragraph grouping ----------------------------------------------
 
@@ -418,7 +689,8 @@ class DocLayoutComponent:
         digit runs with a placeholder before counting. That single
         transformation is what makes 'Page 3 of 12' detectable as furniture.
         """
-        if len(page_lines) < cfg.header_footer_min_pages:
+        pages_total = len(page_lines)
+        if pages_total < 2:
             return {}
         top: Counter[str] = Counter()
         bottom: Counter[str] = Counter()
@@ -443,7 +715,17 @@ class DocLayoutComponent:
             top.update(seen_top)
             bottom.update(seen_bottom)
 
-        threshold = cfg.header_footer_min_pages
+        # On a document shorter than the normal threshold, require the line to
+        # appear on *every* page instead. A running header on both pages of a
+        # two-page paper is 100% recurrence inside the margin band, which is
+        # strong evidence — and the old flat `>= 3` rule meant short documents
+        # got no furniture detection at all, so journal headers were indexed as
+        # body text.
+        threshold = (
+            cfg.header_footer_min_pages
+            if pages_total >= cfg.header_footer_min_pages
+            else pages_total
+        )
         out: dict[str, BlockType] = {}
         for key, count in top.items():
             if count >= threshold:
@@ -461,7 +743,7 @@ class DocLayoutComponent:
         boilerplate: dict[str, BlockType],
         cfg: LayoutConfig,
     ) -> Block | None:
-        text = " ".join(line.text for line in group).strip()
+        text = _join_lines([line.text for line in group])
         if not text:
             return None
         bbox = group[0].bbox
@@ -478,12 +760,6 @@ class DocLayoutComponent:
         if len(group) == 1 and key in boilerplate:
             return Block(text, boilerplate[key], provenance, None, 0, size)
 
-        if _BULLET.match(group[0].text):
-            return Block(text, BlockType.LIST_ITEM, provenance, None, 0, size)
-
-        if _CAPTION.match(text) and words <= cfg.caption_max_words:
-            return Block(text, BlockType.CAPTION, provenance, None, 0, size)
-
         bold = sum(ln.bold_fraction * len(ln.text) for ln in group) / max(
             sum(len(ln.text) for ln in group), 1
         )
@@ -494,6 +770,19 @@ class DocLayoutComponent:
             and (larger or emphasised)
             and not _SENTENCE_END.search(text[:-1] or text)
         )
+
+        # Heading test runs BEFORE the bullet test, because a numbered section
+        # heading looks exactly like an ordered list item: "2. Method" and
+        # "3.1 Results" both match the bullet pattern. Testing bullets first
+        # misclassified every numbered heading in the stress corpus as a list
+        # item, which destroyed the heading hierarchy of any document that
+        # numbers its sections — most specifications and papers.
+        if _BULLET.match(group[0].text) and not is_heading:
+            return Block(text, BlockType.LIST_ITEM, provenance, None, 0, size)
+
+        if _CAPTION.match(text) and words <= cfg.caption_max_words:
+            return Block(text, BlockType.CAPTION, provenance, None, 0, size)
+
         if is_heading:
             # Level is assigned later, once every heading size on the document
             # is known. A per-block decision cannot get the hierarchy right.
