@@ -25,11 +25,11 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 239 passing |
+| **Tests** | 273 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
-| **Components** | 12 |
+| **Components** | 17 units |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
 | **Base dependencies** | none |
 | **Python** | 3.10+ |
@@ -232,6 +232,8 @@ repository off `sys.path`.
 | **`entity_resolution/`** | Match records with no shared key, unsupervised and explainably. Affine-gap distance, greedy set-cover blocking, Fellegi–Sunter + EM, average-linkage clustering | dedupe, Splink, Gotoh 1982, Fellegi & Sunter 1969 |
 | **`extraction/`** | Document + schema → validated object. Targeted repair loop, per-field provenance, grounding. Plus a multi-document splitter | own (shape common to ExtractThinker / Instructor) |
 | **`guardrails/`** | Indirect prompt-injection defense: source delimiting, pattern neutralisation, output policy. Closes the hole where an injected answer passed citation verification as *grounded* | own work; delimiting from the injection literature |
+| **[`graph/`](toolkit/graph/README.md)** | Deterministic graph algorithms: topological layers, cycle reporting with the actual cycle, SCC, critical path, transitive reduction | own work; Kahn, Tarjan, Dijkstra |
+| **[`dag/`](toolkit/dag/README.md)** | DAG execution on a ready queue. A failed node's descendants are *skipped*, not failed, and every skip names its cause | own scheduler; Temporal's retry shape |
 | **`cache/`** | Content-addressed caching. Per-**text** embedding keys, whole-request LLM keys | own |
 | **`governor/`** | Pre-flight token/cost budget, sliding-window rate limit, selective retry | Temporal's retry shape + own window |
 | **`durable_steps/`** | Crash-resumable multi-step execution on a plain SQL checkpoint table, with leasing | DBOS Transact, Hatchet leasing, Temporal replay |
@@ -792,6 +794,8 @@ feeling.
     ├── governor/                  L1 budget, rate limit, retry
     ├── concurrency.py             L1 bounded parallel map
     ├── durable_steps/             L1 crash-resumable execution
+    ├── graph/                     L2 graph algorithms (standalone)
+    ├── dag/                       L2 DAG execution, ready queue, resumable
     ├── doc_layout/                L2 reading order, headings, furniture
     ├── chunking/                  L2 provenance-carrying chunks
     ├── hybrid_ranker/             L2 RRF, cascade, MMR
@@ -800,7 +804,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     239 tests, nine suites
+    └── tests/                     273 tests, ten suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

@@ -65,8 +65,14 @@ Each new unit ships with a recipe that uses it and an example that runs. A compo
 with no consumer is speculative inventory: it costs CI time, review time and
 attention, and returns nothing.
 
-Six of the ten composition recipes in `ARCHITECTURE.md` need a DAG engine. That is a
-stronger argument for building one than any priority score.
+`graph`/`dag` were built because an existing unit's documented limitation blocked a
+stage of the pipeline in `ARCHITECTURE.md`: `durable_steps` runs a list, and
+stage 5-7 fan out per document. A named consumer and a named blocker is a stronger
+argument than any priority score. `recipe:parallel_document_pipeline` is that
+consumer, and it shipped in the same commit.
+
+The recipes themselves live in `REGISTRY.json` (seven today), not in
+`ARCHITECTURE.md` -- `test_recipe_entries_exist` executes every one of them.
 
 ## 6. A hard cap forces the trade-off
 

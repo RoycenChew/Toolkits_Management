@@ -64,6 +64,13 @@ SMOKE = {
                      "assert r.context['s'] == 1",
     "doc_layout": "from {p}doc_layout import DocLayoutComponent, LayoutRequest; "
                   "assert DocLayoutComponent().execute(LayoutRequest([])).blocks == []",
+    "graph": "from {p}graph import Graph, topological_order; "
+             "g = Graph.from_dependencies({{'b': ['a']}}); "
+             "assert topological_order(g) == ['a', 'b']",
+    "dag": "from {p}dag import DagExecutorComponent, DagRequest, Node; "
+           "r = DagExecutorComponent().execute(DagRequest("
+           "[Node('a', lambda ctx: 1), Node('b', lambda ctx: ctx['a'] + 1, ['a'])])); "
+           "assert r.ok and r.results['b'] == 2",
     "chunking": "from {p}chunking import ChunkerComponent, ChunkRequest; "
                 "from {p}core import Document; "
                 "assert ChunkerComponent().execute("
@@ -357,6 +364,14 @@ def test_copy_durable_steps():
 
 def test_copy_doc_layout():
     _copy_and_import("doc_layout")
+
+
+def test_copy_graph():
+    _copy_and_import("graph")
+
+
+def test_copy_dag():
+    _copy_and_import("dag")
 
 
 def test_copy_chunking():

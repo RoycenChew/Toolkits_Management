@@ -40,6 +40,12 @@ from toolkit.core import (  # noqa: E402
     ScreeningLimits,
     normalise_text,
 )
+from toolkit.dag import (  # noqa: E402
+    DagConfig,
+    DagExecutorComponent,
+    DagRequest,
+    Node,
+)
 from toolkit.doc_layout import BBox as LayoutBBox  # noqa: E402
 from toolkit.doc_layout import (  # noqa: E402
     DocLayoutComponent,
@@ -74,6 +80,15 @@ from toolkit.extraction import (  # noqa: E402
     FieldType,
 )
 from toolkit.governor import BudgetExceeded, GovernedLLM, GovernorConfig  # noqa: E402
+from toolkit.graph import (  # noqa: E402
+    CycleError,
+    Graph,
+    critical_path,
+    descendants,
+    topological_layers,
+    topological_order,
+    transitive_reduction,
+)
 from toolkit.guardrails import (  # noqa: E402
     GuardrailComponent,
     GuardrailConfig,
@@ -194,6 +209,60 @@ def unit_chunking() -> None:
         out("  %s pages=%s bbox=%s\n     %s\n" % (
             chunk.chunk_id, chunk.pages,
             [round(v) for v in prov.bbox.as_tuple()], chunk.text[:60]))
+
+
+def unit_graph() -> None:
+    """graph — deterministic graph algorithms, nothing imported."""
+    build = Graph.from_dependencies({
+        "compile": ["checkout"],
+        "unit_tests": ["compile"],
+        "lint": ["checkout"],
+        "package": ["unit_tests", "lint"],
+        "publish": ["package"],
+    })
+    out("order        %s\n" % topological_order(build))
+    out("layers       %s\n" % topological_layers(build))
+    out("  layer count is the floor on sequential rounds: %d\n"
+        % len(topological_layers(build)))
+    total, path = critical_path(build, {"compile": 5.0, "unit_tests": 20.0, "lint": 1.0})
+    out("critical     %.0f via %s\n" % (total, path))
+    out("blocked by compile: %s\n" % sorted(descendants(build, "compile")))
+
+    # A cycle is reported as the actual loop, not as a boolean.
+    broken = Graph.from_dependencies({"a": ["c"], "b": ["a"], "c": ["b"]})
+    try:
+        topological_order(broken)
+    except CycleError as exc:
+        out("cycle        %s\n" % " -> ".join(exc.cycle))
+
+    implied = Graph.from_successors({"a": ["b", "c"], "b": ["c"]})
+    out("reduced      a -> %s  (a->c was implied by a->b->c)\n"
+        % transitive_reduction(implied).out_edges("a"))
+
+
+def unit_dag() -> None:
+    """dag — run a graph in parallel, with honest failure propagation."""
+    def step(name: str, fail: bool = False):
+        def fn(ctx):
+            if fail:
+                raise RuntimeError("no connection")
+            return name.upper()
+        return fn
+
+    nodes = [
+        Node("extract", step("extract")),
+        Node("clean", step("clean"), ["extract"]),
+        Node("enrich", step("enrich", fail=True), ["extract"]),
+        Node("index", step("index"), ["clean", "enrich"]),
+        Node("report", step("report"), ["clean"]),
+    ]
+    result = DagExecutorComponent().execute(
+        DagRequest(nodes, config=DagConfig(max_workers=4))
+    )
+    out("status    %s\n" % result.status.value)
+    out(result.render() + "\n")
+    out("note      'report' still ran: it never depended on the failure\n")
+    out("          'index' is SKIPPED, not FAILED - it had nothing to do\n")
 
 
 def unit_hybrid_ranker() -> None:
@@ -581,6 +650,66 @@ def recipe_reconcile_records() -> None:
             pair.left, pair.right, pair.match_probability, dict(pair.pattern)))
 
 
+def recipe_parallel_document_pipeline() -> None:
+    """R7 · Parallel document pipeline
+    dag + graph + adapters + chunking + durable_steps. Fan out per document,
+    fan back in, and resume where it stopped.
+    """
+    directory = _corpus()
+    paths = sorted(
+        os.path.join(directory, name)
+        for name in os.listdir(directory)
+        if name.endswith(".md")
+    )
+    database = os.path.join(tempfile.mkdtemp(), "pipeline.db")
+    config = DagConfig(max_workers=4, checkpoint_db=database)
+
+    def parse(path: str):
+        def fn(ctx):
+            document = PlainTextSource().load(path)
+            return {"doc_id": document.doc_id, "blocks": len(document.blocks)}
+        return fn
+
+    def chunk(path: str):
+        def fn(ctx):
+            document = PlainTextSource().load(path)
+            result = ChunkerComponent().execute(
+                ChunkRequest(document, ChunkConfig(max_tokens=64))
+            )
+            return {"chunks": len(result.chunks)}
+        return fn
+
+    nodes = []
+    chunk_ids = []
+    for index, path in enumerate(paths):
+        parse_id, chunk_id = "parse_%d" % index, "chunk_%d" % index
+        nodes.append(Node(parse_id, parse(path)))
+        nodes.append(Node(chunk_id, chunk(path), [parse_id]))
+        chunk_ids.append(chunk_id)
+
+    def summarise(ctx):
+        return {
+            "documents": len(chunk_ids),
+            "chunks": sum(ctx[name]["chunks"] for name in chunk_ids),
+        }
+
+    nodes.append(Node("summary", summarise, chunk_ids))
+
+    first = DagExecutorComponent().execute(
+        DagRequest(nodes, run_id="ingest:v1", config=config)
+    )
+    out("run 1  %s  %d nodes across %d layer(s)\n"
+        % (first.status.value, len(first.outcomes), len(first.layers)))
+    out("       summary=%s\n" % first.results["summary"])
+    out("       per-document work fans out; layer 2 = %s\n" % first.layers[1])
+
+    second = DagExecutorComponent().execute(
+        DagRequest(nodes, run_id="ingest:v1", config=config)
+    )
+    out("run 2  %s  replayed=%d executed=%d  (nothing re-parsed)\n"
+        % (second.status.value, len(second.replayed), len(second.completed)))
+
+
 def recipe_measured_change() -> None:
     """R5 · Measured change
     evaluation + hybrid_ranker + pipelines. Never tune retrieval on a feeling.
@@ -617,6 +746,8 @@ SNIPPETS = {
     "core": unit_core,
     "ports": unit_ports,
     "doc_layout": unit_doc_layout,
+    "graph": unit_graph,
+    "dag": unit_dag,
     "chunking": unit_chunking,
     "hybrid_ranker": unit_hybrid_ranker,
     "entity_resolution": unit_entity_resolution,
@@ -634,6 +765,7 @@ SNIPPETS = {
     "recipe:resumable_ingest": recipe_resumable_ingest,
     "recipe:trustworthy_extraction": recipe_trustworthy_extraction,
     "recipe:reconcile_records": recipe_reconcile_records,
+    "recipe:parallel_document_pipeline": recipe_parallel_document_pipeline,
     "recipe:measured_change": recipe_measured_change,
 }
 

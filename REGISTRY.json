@@ -68,6 +68,7 @@
       "recipes": [
         "cited_document_qa",
         "governed_cached_rag",
+        "parallel_document_pipeline",
         "reconcile_records",
         "trustworthy_extraction"
       ]
@@ -104,38 +105,6 @@
       "recipes": []
     },
     {
-      "id": "concurrency",
-      "path": "toolkit/concurrency.py",
-      "layer": 1,
-      "kind": "functions",
-      "capability": "order-preserving bounded parallel map with selective retry",
-      "domains": [
-        "10"
-      ],
-      "toolkit_deps": [
-        "core"
-      ],
-      "external_deps": [],
-      "copy_tier": "needs_core",
-      "api": [
-        "bounded_map",
-        "batched",
-        "embed_all"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "threads only, no asyncio",
-        "no cross-process coordination"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_concurrency",
-      "recipes": [
-        "reconcile_records",
-        "resumable_ingest"
-      ]
-    },
-    {
       "id": "cache",
       "path": "toolkit/cache",
       "layer": 1,
@@ -169,6 +138,71 @@
       ]
     },
     {
+      "id": "concurrency",
+      "path": "toolkit/concurrency.py",
+      "layer": 1,
+      "kind": "functions",
+      "capability": "order-preserving bounded parallel map with selective retry",
+      "domains": [
+        "10"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_core",
+      "api": [
+        "bounded_map",
+        "batched",
+        "embed_all"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "threads only, no asyncio",
+        "no cross-process coordination"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_concurrency",
+      "recipes": [
+        "reconcile_records",
+        "resumable_ingest"
+      ]
+    },
+    {
+      "id": "durable_steps",
+      "path": "toolkit/durable_steps",
+      "layer": 1,
+      "kind": "component",
+      "capability": "crash-resumable multi-step execution on a SQL checkpoint table, with leasing",
+      "domains": [
+        "06",
+        "10"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "DurableStepsComponent",
+        "SqliteCheckpointStore",
+        "Step",
+        "WorkflowRequest"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "linear only, no DAG or fan-out - compose with `dag` for graphs",
+        "single machine",
+        "step results must be JSON-serialisable"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_durable_steps",
+      "recipes": [
+        "parallel_document_pipeline",
+        "resumable_ingest"
+      ]
+    },
+    {
       "id": "governor",
       "path": "toolkit/governor",
       "layer": 1,
@@ -197,236 +231,6 @@
       "example": "examples/cookbook.py::unit_governor",
       "recipes": [
         "governed_cached_rag"
-      ]
-    },
-    {
-      "id": "durable_steps",
-      "path": "toolkit/durable_steps",
-      "layer": 1,
-      "kind": "component",
-      "capability": "crash-resumable multi-step execution on a SQL checkpoint table, with leasing",
-      "domains": [
-        "06",
-        "10"
-      ],
-      "toolkit_deps": [],
-      "external_deps": [],
-      "copy_tier": "standalone",
-      "api": [
-        "DurableStepsComponent",
-        "SqliteCheckpointStore",
-        "Step",
-        "WorkflowRequest"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "linear only, no DAG or fan-out",
-        "single machine",
-        "step results must be JSON-serialisable"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_durable_steps",
-      "recipes": [
-        "resumable_ingest"
-      ]
-    },
-    {
-      "id": "doc_layout",
-      "path": "toolkit/doc_layout",
-      "layer": 2,
-      "kind": "component",
-      "capability": "reading order, heading hierarchy, page furniture and overlap resolution over positioned text spans",
-      "domains": [
-        "02"
-      ],
-      "toolkit_deps": [],
-      "external_deps": [],
-      "copy_tier": "standalone",
-      "api": [
-        "DocLayoutComponent",
-        "LayoutRequest",
-        "TextSpan",
-        "BBox"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "table structure not reconstructed",
-        "no OCR or layout model",
-        "reading order is page-number order across pages"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_doc_layout",
-      "recipes": [
-        "cited_document_qa"
-      ]
-    },
-    {
-      "id": "chunking",
-      "path": "toolkit/chunking",
-      "layer": 2,
-      "kind": "component",
-      "capability": "structure-aware chunking that carries page and bbox provenance into every chunk",
-      "domains": [
-        "02",
-        "04"
-      ],
-      "toolkit_deps": [
-        "core"
-      ],
-      "external_deps": [],
-      "copy_tier": "needs_core",
-      "api": [
-        "ChunkerComponent",
-        "ChunkRequest",
-        "ChunkConfig",
-        "estimate_tokens"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "tables chunked as text",
-        "sentence splitting is regex plus an abbreviation list",
-        "default token counter is a heuristic"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_chunking",
-      "recipes": [
-        "cited_document_qa",
-        "measured_change"
-      ]
-    },
-    {
-      "id": "hybrid_ranker",
-      "path": "toolkit/hybrid_ranker",
-      "layer": 2,
-      "kind": "component",
-      "capability": "rank fusion across incomparable retrievers, budgeted rerank cascade, MMR",
-      "domains": [
-        "04",
-        "07"
-      ],
-      "toolkit_deps": [],
-      "external_deps": [],
-      "copy_tier": "standalone",
-      "api": [
-        "HybridRankerComponent",
-        "FusionRequest",
-        "FusionConfig",
-        "RankedList"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "cannot improve recall",
-        "MMR is quadratic in the candidate pool",
-        "no learning to rank"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_hybrid_ranker",
-      "recipes": [
-        "cited_document_qa",
-        "measured_change"
-      ]
-    },
-    {
-      "id": "entity_resolution",
-      "path": "toolkit/entity_resolution",
-      "layer": 2,
-      "kind": "component",
-      "capability": "unsupervised record matching: learned blocking, Fellegi-Sunter with EM, clustering",
-      "domains": [
-        "03",
-        "07"
-      ],
-      "toolkit_deps": [],
-      "external_deps": [],
-      "copy_tier": "standalone",
-      "api": [
-        "EntityResolutionComponent",
-        "ResolutionRequest",
-        "FieldComparison",
-        "affine_gap_similarity"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "assumes conditional independence between fields",
-        "blocking is in-memory",
-        "average linkage is cubic in a region"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_entity_resolution",
-      "recipes": [
-        "reconcile_records"
-      ]
-    },
-    {
-      "id": "guardrails",
-      "path": "toolkit/guardrails",
-      "layer": 2,
-      "kind": "component",
-      "capability": "indirect prompt-injection defense: source delimiting, pattern neutralisation, output policy",
-      "domains": [
-        "01",
-        "09"
-      ],
-      "toolkit_deps": [],
-      "external_deps": [],
-      "copy_tier": "standalone",
-      "api": [
-        "GuardrailComponent",
-        "GuardrailConfig",
-        "SYSTEM_PREAMBLE"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "patterns are English and literal, evaded by obfuscation",
-        "cannot detect a false claim with no imperative",
-        "no claim entailment checking"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_guardrails",
-      "recipes": [
-        "cited_document_qa",
-        "trustworthy_extraction"
-      ]
-    },
-    {
-      "id": "extraction",
-      "path": "toolkit/extraction",
-      "layer": 2,
-      "kind": "component",
-      "capability": "schema-driven extraction with a targeted repair loop and per-field provenance, plus multi-document splitting",
-      "domains": [
-        "01",
-        "02",
-        "03"
-      ],
-      "toolkit_deps": [
-        "core"
-      ],
-      "external_deps": [],
-      "copy_tier": "needs_core",
-      "api": [
-        "ExtractionComponent",
-        "DocumentSplitterComponent",
-        "ExtractionSchema",
-        "FieldSpec"
-      ],
-      "maturity": "documented",
-      "used_in_projects": [],
-      "limitations": [
-        "one model call per attempt over the whole document",
-        "grounding is substring matching",
-        "splitter is heuristic and needs furniture classification"
-      ],
-      "last_reviewed": "2026-10-01",
-      "example": "examples/cookbook.py::unit_extraction",
-      "recipes": [
-        "trustworthy_extraction"
       ]
     },
     {
@@ -476,7 +280,287 @@
       "recipes": [
         "cited_document_qa",
         "governed_cached_rag",
+        "parallel_document_pipeline",
         "resumable_ingest"
+      ]
+    },
+    {
+      "id": "chunking",
+      "path": "toolkit/chunking",
+      "layer": 2,
+      "kind": "component",
+      "capability": "structure-aware chunking that carries page and bbox provenance into every chunk",
+      "domains": [
+        "02",
+        "04"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_core",
+      "api": [
+        "ChunkerComponent",
+        "ChunkRequest",
+        "ChunkConfig",
+        "estimate_tokens"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "tables chunked as text",
+        "sentence splitting is regex plus an abbreviation list",
+        "default token counter is a heuristic"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_chunking",
+      "recipes": [
+        "cited_document_qa",
+        "measured_change",
+        "parallel_document_pipeline"
+      ]
+    },
+    {
+      "id": "dag",
+      "path": "toolkit/dag",
+      "layer": 2,
+      "kind": "component",
+      "capability": "DAG execution with a ready queue, honest failure propagation, conditional nodes, per-node retry and optional checkpointed resume",
+      "domains": [
+        "06",
+        "10"
+      ],
+      "toolkit_deps": [
+        "core",
+        "durable_steps",
+        "graph"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_package",
+      "api": [
+        "DagExecutorComponent",
+        "DagRequest",
+        "DagConfig",
+        "Node",
+        "RetryPolicy",
+        "FailurePolicy",
+        "DagResult"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "threads, not processes: CPU-bound nodes contend on the GIL",
+        "node_timeout bounds how long the scheduler waits, not how long a node runs",
+        "single machine; no distributed coordination",
+        "checkpointed nodes must return JSON-serialisable values",
+        "no dynamic fan-out: the graph is fixed before execution starts"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_dag",
+      "recipes": [
+        "parallel_document_pipeline"
+      ]
+    },
+    {
+      "id": "doc_layout",
+      "path": "toolkit/doc_layout",
+      "layer": 2,
+      "kind": "component",
+      "capability": "reading order, heading hierarchy, page furniture and overlap resolution over positioned text spans",
+      "domains": [
+        "02"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "DocLayoutComponent",
+        "LayoutRequest",
+        "TextSpan",
+        "BBox"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "table structure not reconstructed",
+        "no OCR or layout model",
+        "reading order is page-number order across pages"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_doc_layout",
+      "recipes": [
+        "cited_document_qa"
+      ]
+    },
+    {
+      "id": "entity_resolution",
+      "path": "toolkit/entity_resolution",
+      "layer": 2,
+      "kind": "component",
+      "capability": "unsupervised record matching: learned blocking, Fellegi-Sunter with EM, clustering",
+      "domains": [
+        "03",
+        "07"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "EntityResolutionComponent",
+        "ResolutionRequest",
+        "FieldComparison",
+        "affine_gap_similarity"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "assumes conditional independence between fields",
+        "blocking is in-memory",
+        "average linkage is cubic in a region"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_entity_resolution",
+      "recipes": [
+        "reconcile_records"
+      ]
+    },
+    {
+      "id": "extraction",
+      "path": "toolkit/extraction",
+      "layer": 2,
+      "kind": "component",
+      "capability": "schema-driven extraction with a targeted repair loop and per-field provenance, plus multi-document splitting",
+      "domains": [
+        "01",
+        "02",
+        "03"
+      ],
+      "toolkit_deps": [
+        "core"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_core",
+      "api": [
+        "ExtractionComponent",
+        "DocumentSplitterComponent",
+        "ExtractionSchema",
+        "FieldSpec"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "one model call per attempt over the whole document",
+        "grounding is substring matching",
+        "splitter is heuristic and needs furniture classification"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_extraction",
+      "recipes": [
+        "trustworthy_extraction"
+      ]
+    },
+    {
+      "id": "graph",
+      "path": "toolkit/graph",
+      "layer": 2,
+      "kind": "functions",
+      "capability": "deterministic graph algorithms: topological order and layers, cycle reporting, SCC, reachability, shortest and critical path, transitive reduction",
+      "domains": [
+        "07"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "Graph",
+        "topological_order",
+        "topological_layers",
+        "find_cycle",
+        "strongly_connected_components",
+        "descendants",
+        "ancestors",
+        "shortest_path",
+        "critical_path",
+        "transitive_reduction",
+        "validate_dag"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "unweighted graphs only except in shortest_path",
+        "no graph mutation; build a new Graph instead",
+        "transitive_reduction is O(V*E) via full reachability, fine to thousands of nodes",
+        "no serialisation format"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_graph",
+      "recipes": [
+        "parallel_document_pipeline"
+      ]
+    },
+    {
+      "id": "guardrails",
+      "path": "toolkit/guardrails",
+      "layer": 2,
+      "kind": "component",
+      "capability": "indirect prompt-injection defense: source delimiting, pattern neutralisation, output policy",
+      "domains": [
+        "01",
+        "09"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "GuardrailComponent",
+        "GuardrailConfig",
+        "SYSTEM_PREAMBLE"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "patterns are English and literal, evaded by obfuscation",
+        "cannot detect a false claim with no imperative",
+        "no claim entailment checking"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_guardrails",
+      "recipes": [
+        "cited_document_qa",
+        "trustworthy_extraction"
+      ]
+    },
+    {
+      "id": "hybrid_ranker",
+      "path": "toolkit/hybrid_ranker",
+      "layer": 2,
+      "kind": "component",
+      "capability": "rank fusion across incomparable retrievers, budgeted rerank cascade, MMR",
+      "domains": [
+        "04",
+        "07"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "HybridRankerComponent",
+        "FusionRequest",
+        "FusionConfig",
+        "RankedList"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "cannot improve recall",
+        "MMR is quadratic in the candidate pool",
+        "no learning to rank"
+      ],
+      "last_reviewed": "2026-10-01",
+      "example": "examples/cookbook.py::unit_hybrid_ranker",
+      "recipes": [
+        "cited_document_qa",
+        "measured_change"
       ]
     },
     {
@@ -588,6 +672,17 @@
         "evaluation",
         "hybrid_ranker",
         "pipelines"
+      ]
+    },
+    "parallel_document_pipeline": {
+      "entry": "examples/cookbook.py::recipe_parallel_document_pipeline",
+      "units": [
+        "adapters",
+        "chunking",
+        "core",
+        "dag",
+        "durable_steps",
+        "graph"
       ]
     },
     "reconcile_records": {

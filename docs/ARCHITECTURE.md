@@ -156,6 +156,14 @@ No component is aware of which profile it runs in. That is the point.
 | **Observability** | platform | **absent** |
 | **Governance** | platform | **absent** |
 
+**Orchestration is cross-cutting, not a ninth plane.** Every plane above needs its
+steps sequenced, so it is a capability rather than a band in the stack. Two units
+cover it and they are not interchangeable: `durable_steps` executes a **list** with
+leasing and checkpoints, and `dag` executes a **graph** in one process with a ready
+queue, retry, conditional nodes and `SKIPPED`-vs-`FAILED` propagation, resting on
+`graph` for the algorithms. Neither is a scheduler -- deciding *when* a run starts is
+still the caller's job, and step 6 below is where a queue would supply it.
+
 ---
 
 ## 4. The AI pipeline, stage by stage

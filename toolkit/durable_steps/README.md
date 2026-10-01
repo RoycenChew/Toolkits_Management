@@ -127,7 +127,9 @@ print(result.status, result.executed, result.replayed)
 
 - **Not a scheduler.** No queue, no worker pool, no cron, no cross-process
   signalling. It makes a run resumable; deciding when to run it is yours.
-- Steps run sequentially in the calling thread. No parallel fan-out.
+- Steps run sequentially in the calling thread. No parallel fan-out. When the work
+  is a graph rather than a list, use `toolkit/dag`, which keeps this component's
+  checkpoint-and-replay semantics by composing with it rather than replacing it.
 - Step results must be JSON-serialisable. Pass large payloads by reference (an S3
   key, a row id), not by value.
 - `idempotent=False` gives you *detection*, not exactly-once. If a non-idempotent
