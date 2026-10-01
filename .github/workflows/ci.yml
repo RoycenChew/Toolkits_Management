@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  # The important job. It installs NO optional backends, so the stdlib-only
+  # promise is verified rather than assumed: if a component quietly grew a hard
+  # dependency on litellm or lancedb, this is what catches it. Adapters whose
+  # package is absent report SKIP, which is a visible outcome, not a silent pass.
+  stdlib-only:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (no extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Assert the base install pulls in no vendor SDK
+        run: |
+          python - <<'PY'
+          import sys
+          import toolkit, toolkit.pipelines, toolkit.extraction, toolkit.evaluation
+          leaked = [m for m in ("litellm", "lancedb", "fastembed", "docling",
+                                "pdfplumber", "bm25s", "sentence_transformers")
+                    if m in sys.modules]
+          assert not leaked, "importing toolkit pulled in: " + ", ".join(leaked)
+          print("base import is clean")
+          PY
+      - name: Lint
+        run: ruff check toolkit examples
+      - name: Types
+        run: mypy toolkit --exclude 'toolkit/tests'
+      - name: Tests
+        run: pytest toolkit/tests -q
+      - name: Examples must run offline
+        run: |
+          python examples/quickstart.py > /dev/null
+          python examples/extract.py > /dev/null
+          python examples/evaluate.py > /dev/null
+
+  # Runs the same suite with the optional backends present, so the adapters that
+  # SKIP above are actually exercised somewhere.
+  with-backends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install with backends
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,llm,embed,store]"
+          pip install pdfplumber
+      - name: Tests
+        run: pytest toolkit/tests -q
+      - name: Report which adapters were verified
+        run: python toolkit/tests/test_contracts.py
