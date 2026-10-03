@@ -37,3 +37,4 @@ Thumbs.db
 desktop.ini
 validation/paper_triage/corpus/pdf/
 validation/paper_triage/results/
+validation/paper_triage/*.log
