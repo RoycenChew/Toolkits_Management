@@ -585,7 +585,7 @@
       "path": "toolkit/pipelines",
       "layer": 3,
       "kind": "facade",
-      "capability": "KnowledgeBase: ingest a folder, ask with verified citations",
+      "capability": "KnowledgeBase: ingest a folder, ask with verified citations, save and reload the index without re-parsing",
       "domains": [
         "02",
         "04"
@@ -612,10 +612,9 @@
         "validation/paper_triage"
       ],
       "limitations": [
-        "chunks mirrored in memory",
-        "sequential across documents",
-        "supersede index is not persisted",
-        "cross-process resume re-ingests rather than replays: chunks are process-local, so a checkpoint written by an earlier process cannot be trusted and the work is redone"
+        "chunks and their vectors are mirrored in memory; `save`/`load` persist them to disk",
+        "sequential across documents; use `dag` to fan out, and `IngestConfig.on_document` to watch progress",
+        "cross-process resume re-ingests rather than replays, because chunks are process-local; `save`/`load` is the cheap path - 38 minutes of parsing reloads in under a second"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_pipelines",

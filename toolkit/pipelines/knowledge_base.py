@@ -31,7 +31,15 @@ from ..adapters.stores import InMemoryVectorStore, SqliteFtsIndex
 from ..chunking import ChunkConfig, ChunkerComponent, ChunkRequest
 from ..concurrency import MapConfig, embed_all
 from ..core.errors import AdapterError, ToolkitError
-from ..core.models import Chunk, Document, Message, Provenance, SearchHit, Usage
+from ..core.models import (
+    BBox,
+    Chunk,
+    Document,
+    Message,
+    Provenance,
+    SearchHit,
+    Usage,
+)
 from ..durable_steps import (
     DurableStepsComponent,
     SqliteCheckpointStore,
@@ -85,6 +93,63 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _chunk_to_json(chunk: Chunk) -> dict[str, Any]:
+    """A chunk as plain JSON, provenance included.
+
+    Written by hand rather than with `dataclasses.asdict` so the on-disk shape
+    is an explicit contract: adding a field to `Chunk` must not silently change
+    a saved index, and `BBox` has to become four numbers rather than a nested
+    object whose class could move.
+    """
+    return {
+        "chunk_id": chunk.chunk_id,
+        "text": chunk.text,
+        "doc_id": chunk.doc_id,
+        "index": chunk.index,
+        "provenances": [
+            {
+                "page": provenance.page,
+                "source_id": provenance.source_id,
+                "bbox": (
+                    None
+                    if provenance.bbox is None
+                    else [
+                        provenance.bbox.x0,
+                        provenance.bbox.y0,
+                        provenance.bbox.x1,
+                        provenance.bbox.y1,
+                    ]
+                ),
+            }
+            for provenance in chunk.provenances
+        ],
+        "metadata": dict(chunk.metadata or {}),
+    }
+
+
+def _chunk_from_json(row: dict[str, Any]) -> Chunk:
+    """Inverse of `_chunk_to_json`. Raises on a missing required field."""
+    provenances = []
+    for entry in row.get("provenances") or ():
+        box = entry.get("bbox")
+        provenances.append(
+            Provenance(
+                page=int(entry["page"]),
+                bbox=None if box is None else BBox(float(box[0]), float(box[1]),
+                                                   float(box[2]), float(box[3])),
+                source_id=str(entry.get("source_id") or ""),
+            )
+        )
+    return Chunk(
+        chunk_id=str(row["chunk_id"]),
+        text=str(row["text"]),
+        doc_id=str(row["doc_id"]),
+        index=int(row["index"]),
+        provenances=provenances,
+        metadata=dict(row.get("metadata") or {}),
+    )
+
+
 class KnowledgeBase:
     """Ingest documents, then ask grounded questions about them."""
 
@@ -117,6 +182,19 @@ class KnowledgeBase:
         self._ranker = HybridRankerComponent()
         self._guard = GuardrailComponent()
         self._chunks: dict[str, Chunk] = {}
+        self._vectors: dict[str, Sequence[float]] = {}
+        """chunk_id -> embedding, kept so `save` does not have to re-embed.
+
+        A mirror, because no `VectorStore` port method reads a vector back out;
+        only `search` does, and that returns neighbours rather than a specific
+        row. Costs 4 bytes per dimension per chunk - about 4.6 MB for 3,000
+        chunks at 384 dimensions, against the tens of megabytes the chunk text
+        itself already occupies in `_chunks`.
+
+        `_chunks` is authoritative: `save` iterates it and re-embeds anything
+        missing here, so a stale or incomplete mirror costs time, never
+        correctness.
+        """
         self._doc_paths: dict[str, str] = {}
         self._path_docs: dict[str, str] = {}
         """path -> current doc_id. The supersede index; see `_supersede`. In-memory
@@ -309,6 +387,8 @@ class KnowledgeBase:
                 else len(texts)
             )
             self.vector_store.upsert(result.chunks, vectors)
+            for chunk, vector in zip(result.chunks, vectors):
+                self._vectors[chunk.chunk_id] = vector
         if cfg.lexical and self.lexical_index is not None:
             self.lexical_index.index(result.chunks)
 
@@ -328,6 +408,7 @@ class KnowledgeBase:
             if chunk.doc_id == document.doc_id and cid not in set(kept)
         ]:
             self._chunks.pop(stale, None)
+            self._vectors.pop(stale, None)
         self._index_model_version = self.embedder.model_version
         self._doc_paths[document.doc_id] = path
 
@@ -364,6 +445,7 @@ class KnowledgeBase:
             cid for cid, chunk in list(self._chunks.items()) if chunk.doc_id == doc_id
         ]:
             self._chunks.pop(chunk_id, None)
+            self._vectors.pop(chunk_id, None)
         path = self._doc_paths.pop(doc_id, None)
         if path is not None and self._path_docs.get(path) == doc_id:
             self._path_docs.pop(path, None)
@@ -786,6 +868,186 @@ class KnowledgeBase:
         prov = chunk.provenances[0] if chunk.provenances else None
         return ("(page " + str(prov.page) + ")\n" + text) if prov else text
 
+
+    # --- persistence --------------------------------------------------------
+
+    SAVE_FORMAT = 1
+    """On-disk layout version. Bumped when a reader for the old one would be wrong."""
+
+    def save(self, directory: str) -> dict[str, Any]:
+        """Write the index to `directory` so it can be reloaded without re-parsing.
+
+        A directory of plain files rather than one opaque blob, and no pickle:
+        the index is the expensive artefact - 49 real papers cost 38 minutes,
+        85% of it in the PDF parser - so it has to survive a toolkit upgrade
+        that changes a dataclass.
+
+            manifest.json     format, embedder version, counts, dimension
+            chunks.jsonl      one chunk per line, provenance included
+            documents.jsonl   doc_id -> source path, the supersede index
+            vectors.bin       float32, row-aligned to chunks.jsonl
+
+        `_chunks` is authoritative. Any chunk whose vector is missing from the
+        mirror is re-embedded here, so an incomplete mirror costs time rather
+        than correctness, and a vector left behind by a removed chunk is simply
+        not written.
+
+        Returns the manifest.
+        """
+        import array
+        import json
+
+        os.makedirs(directory, exist_ok=True)
+        chunks = list(self._chunks.values())
+
+        missing = [c for c in chunks if c.chunk_id not in self._vectors]
+        if missing and self.vector_store is not None:
+            refreshed = embed_all(self.embedder, [c.text for c in missing])
+            for chunk, vector in zip(missing, refreshed):
+                self._vectors[chunk.chunk_id] = vector
+
+        vectors: list[Sequence[float] | None] = [
+            self._vectors.get(c.chunk_id) for c in chunks
+        ]
+        have_vectors = bool(vectors) and all(v is not None for v in vectors)
+        dimension = len(vectors[0]) if have_vectors and vectors[0] is not None else 0
+
+        with open(os.path.join(directory, "chunks.jsonl"), "w", encoding="utf-8",
+                  newline="\n") as handle:
+            for chunk in chunks:
+                handle.write(json.dumps(_chunk_to_json(chunk), ensure_ascii=False) + "\n")
+
+        with open(os.path.join(directory, "documents.jsonl"), "w", encoding="utf-8",
+                  newline="\n") as handle:
+            for doc_id, path in sorted(self._doc_paths.items(), key=lambda r: r[1]):
+                handle.write(
+                    json.dumps({"doc_id": doc_id, "path": path}, ensure_ascii=False) + "\n"
+                )
+
+        if have_vectors:
+            flat = array.array("f")
+            for row in vectors:
+                flat.extend(float(value) for value in row or ())
+            with open(os.path.join(directory, "vectors.bin"), "wb") as handle:
+                flat.tofile(handle)
+        else:
+            # Leave no stale file behind: load() keys off its absence.
+            stale = os.path.join(directory, "vectors.bin")
+            if os.path.exists(stale):
+                os.remove(stale)
+
+        manifest = {
+            "format": self.SAVE_FORMAT,
+            "chunks": len(chunks),
+            "documents": len(self._doc_paths),
+            "embedder_model_version": self._index_model_version,
+            "dimension": dimension,
+            "has_vectors": have_vectors,
+            "chunk_max_tokens": self.chunk_config.max_tokens,
+        }
+        with open(os.path.join(directory, "manifest.json"), "w", encoding="utf-8",
+                  newline="\n") as handle:
+            json.dump(manifest, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+        return manifest
+
+    @classmethod
+    def load(cls, directory: str, **kwargs: Any) -> KnowledgeBase:
+        """Rebuild a KnowledgeBase from `save`, re-indexing but never re-parsing.
+
+        `kwargs` are passed to the constructor, so the embedder, stores, LLM and
+        reranker are the caller's choice - an index saved with no LLM can be
+        loaded with one.
+
+        Saved vectors are reused when the embedder matches the one that produced
+        them, which is the whole point. When it does not, or when the file is
+        absent, every chunk is re-embedded with the configured embedder: slower,
+        but correct, and it means an index outlives the model that built it.
+        Mixing is what is never allowed, and the guard for that already exists.
+        """
+        import array
+        import json
+
+        manifest_path = os.path.join(directory, "manifest.json")
+        if not os.path.exists(manifest_path):
+            raise AdapterError("no saved index at " + directory + " (manifest.json missing)")
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+
+        found = int(manifest.get("format", 0))
+        if found != cls.SAVE_FORMAT:
+            raise AdapterError(
+                "saved index at "
+                + directory
+                + " is format "
+                + str(found)
+                + " but this version reads format "
+                + str(cls.SAVE_FORMAT)
+                + "; re-ingest the corpus"
+            )
+
+        chunks: list[Chunk] = []
+        with open(os.path.join(directory, "chunks.jsonl"), encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                text = line.strip()
+                if not text:
+                    continue
+                try:
+                    chunks.append(_chunk_from_json(json.loads(text)))
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise AdapterError(
+                        "corrupt chunk on line "
+                        + str(line_number)
+                        + " of "
+                        + os.path.join(directory, "chunks.jsonl")
+                    ) from exc
+
+        kb = cls(**kwargs)
+        saved_version = manifest.get("embedder_model_version")
+        dimension = int(manifest.get("dimension") or 0)
+
+        vectors: list[Sequence[float]] | None = None
+        vectors_path = os.path.join(directory, "vectors.bin")
+        reusable = (
+            bool(manifest.get("has_vectors"))
+            and os.path.exists(vectors_path)
+            and dimension > 0
+            and saved_version is not None
+            and kb.vector_store is not None
+            and kb.embedder.model_version == saved_version
+        )
+        if reusable:
+            flat = array.array("f")
+            with open(vectors_path, "rb") as handle:
+                flat.fromfile(handle, len(chunks) * dimension)
+            vectors = [
+                flat[index * dimension : (index + 1) * dimension].tolist()
+                for index in range(len(chunks))
+            ]
+
+        if kb.vector_store is not None and chunks:
+            if vectors is None:
+                vectors = list(embed_all(kb.embedder, [c.text for c in chunks]))
+            kb.vector_store.upsert(chunks, vectors)
+            for chunk, vector in zip(chunks, vectors):
+                kb._vectors[chunk.chunk_id] = vector
+        if kb.lexical_index is not None and chunks:
+            kb.lexical_index.index(chunks)
+
+        for chunk in chunks:
+            kb._chunks[chunk.chunk_id] = chunk
+        with open(os.path.join(directory, "documents.jsonl"), encoding="utf-8") as handle:
+            for line in handle:
+                text = line.strip()
+                if not text:
+                    continue
+                row = json.loads(text)
+                kb._doc_paths[row["doc_id"]] = row["path"]
+                kb._path_docs[row["path"]] = row["doc_id"]
+        kb._index_model_version = (
+            kb.embedder.model_version if kb.vector_store is not None else saved_version
+        )
+        return kb
 
     # --- introspection ----------------------------------------------------
 

@@ -804,7 +804,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     273 tests, ten suites
+    └── tests/                     305 tests, eleven suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

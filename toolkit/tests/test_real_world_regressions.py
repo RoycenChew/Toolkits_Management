@@ -33,6 +33,35 @@ from toolkit.pipelines import IngestConfig, KnowledgeBase  # noqa: E402
 pdfplumber = pytest.importorskip("pdfplumber")
 
 
+class _CountingEmbedder:
+    """A real `Embedder` that records how many texts it was asked to encode.
+
+    The only way to assert that a load reused saved vectors rather than quietly
+    recomputing them - which would throw away most of what persistence buys.
+    """
+
+    def __init__(self, dimension: int = 256, version: str | None = None) -> None:
+        self._inner = HashingEmbedder(dimension=dimension)
+        # Mirror the wrapped embedder's version by default, so "matching
+        # embedder" really matches. Pass an explicit version to simulate a
+        # different model.
+        self._version = version or self._inner.model_version
+        self.embedded = 0
+
+    @property
+    def dimension(self) -> int:
+        return self._inner.dimension
+
+    @property
+    def model_version(self) -> str:
+        return self._version
+
+    def embed(self, texts):
+        batch = list(texts)
+        self.embedded += len(batch)
+        return self._inner.embed(batch)
+
+
 def _tight_pdf(directory: str) -> str:
     from make_corpus import tex_tight_spacing
 
@@ -483,3 +512,238 @@ def test_f9_progress_fires_for_failures_too(tmp_path) -> None:
 
     assert [o.status for o in result.documents] == ["failed"]
     assert seen == ["failed"]
+
+
+# --------------------------------------------------------------------------- #
+# Persistence - the index must survive the process that built it
+# --------------------------------------------------------------------------- #
+QUESTION = "What are supersingular abelian surfaces essential in?"
+
+
+def _two_pdfs(directory) -> list[str]:
+    from make_corpus import rotated_margin_stamp, tex_tight_spacing
+
+    return [
+        tex_tight_spacing(os.path.join(str(directory), "tight.pdf")),
+        rotated_margin_stamp(os.path.join(str(directory), "stamped.pdf")),
+    ]
+
+
+def test_save_load_answers_identically(tmp_path) -> None:
+    """The test that matters: a reloaded index behaves like the one saved.
+
+    Counts matching proves nothing on its own - an index can be the right size
+    and the wrong content. This asserts the same chunks are retrieved in the
+    same order and the same answer comes out.
+    """
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    before = original.ask(QUESTION)
+
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=HashingEmbedder(),
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+        sources=[PdfPlumberSource()],
+    )
+    after = restored.ask(QUESTION)
+
+    assert restored.count() == original.count()
+    assert [c.chunk_id for c in after.chunks] == [c.chunk_id for c in before.chunks]
+    assert after.text == before.text
+    assert restored.documents() == original.documents()
+
+
+def test_save_preserves_provenance_exactly(tmp_path) -> None:
+    """Page and bbox are the core contract; a round-trip that loses them is useless."""
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=HashingEmbedder(),
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+    )
+
+    before = {c.chunk_id: c for c in original.chunks()}
+    for chunk in restored.chunks():
+        source = before[chunk.chunk_id]
+        assert chunk.text == source.text
+        assert len(chunk.provenances) == len(source.provenances)
+        for restored_prov, source_prov in zip(chunk.provenances, source.provenances):
+            assert restored_prov.page == source_prov.page
+            assert (restored_prov.bbox is None) == (source_prov.bbox is None)
+            if source_prov.bbox is not None and restored_prov.bbox is not None:
+                assert restored_prov.bbox.x0 == pytest.approx(source_prov.bbox.x0)
+                assert restored_prov.bbox.y1 == pytest.approx(source_prov.bbox.y1)
+
+
+def test_load_does_not_reparse_the_pdfs(tmp_path) -> None:
+    """The whole point: parsing is 85% of ingest and must not happen again.
+
+    Proven by deleting the source PDFs before loading. If `load` touched them it
+    would fail.
+    """
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+
+    for path in paths:
+        os.remove(path)
+
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=HashingEmbedder(),
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+    )
+
+    assert restored.count() == original.count()
+    assert restored.ask(QUESTION).citations
+
+
+def test_saved_vectors_are_reused_not_recomputed(tmp_path) -> None:
+    """A load that silently re-embeds has thrown away most of the saving."""
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    manifest = original.save(saved)
+
+    assert manifest["has_vectors"] is True
+    assert manifest["dimension"] > 0
+    expected_bytes = manifest["chunks"] * manifest["dimension"] * 4
+    assert os.path.getsize(os.path.join(saved, "vectors.bin")) == expected_bytes
+
+    counting = _CountingEmbedder()
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=counting,
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+    )
+
+    assert restored.count() == original.count()
+    assert counting.embedded == 0, "re-embedded despite a matching embedder"
+
+
+def test_a_different_embedder_triggers_a_reembed_rather_than_a_refusal(tmp_path) -> None:
+    """An index must outlive the model that built it.
+
+    Mixing vectors from two embedders is what is never allowed; re-embedding
+    every chunk from saved text is consistent and therefore fine. Slower, but it
+    still skips the parser, which is the expensive half.
+    """
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+
+    other = _CountingEmbedder(dimension=64, version="other-embedder-v9")
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=other,
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+    )
+
+    assert restored.count() == original.count()
+    assert other.embedded == original.count(), "should have re-embedded every chunk"
+    assert restored.index_model_version == "other-embedder-v9"
+
+
+def test_a_corrupt_chunk_line_names_the_line(tmp_path) -> None:
+    """Silent truncation of an index would be the worst possible failure here."""
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+
+    chunks_file = os.path.join(saved, "chunks.jsonl")
+    with open(chunks_file, encoding="utf-8") as handle:
+        lines = handle.readlines()
+    lines.insert(1, '{"chunk_id": "broken", "text": "no doc_id field"}\n')
+    with open(chunks_file, "w", encoding="utf-8", newline="\n") as handle:
+        handle.writelines(lines)
+
+    with pytest.raises(Exception) as caught:
+        KnowledgeBase.load(
+            saved,
+            embedder=HashingEmbedder(),
+            vector_store=InMemoryVectorStore(),
+            lexical_index=SqliteFtsIndex(),
+        )
+    assert "line 2" in str(caught.value), caught.value
+
+
+def test_a_future_format_is_refused(tmp_path) -> None:
+    """Reading a newer layout with an older reader would corrupt silently."""
+    import json
+
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    original.save(saved)
+
+    manifest_path = os.path.join(saved, "manifest.json")
+    with open(manifest_path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    manifest["format"] = KnowledgeBase.SAVE_FORMAT + 1
+    with open(manifest_path, "w", encoding="utf-8", newline="\n") as handle:
+        json.dump(manifest, handle)
+
+    with pytest.raises(Exception) as caught:
+        KnowledgeBase.load(
+            saved,
+            embedder=HashingEmbedder(),
+            vector_store=InMemoryVectorStore(),
+            lexical_index=SqliteFtsIndex(),
+        )
+    assert "format" in str(caught.value)
+
+
+def test_loading_a_missing_index_says_so(tmp_path) -> None:
+    with pytest.raises(Exception) as caught:
+        KnowledgeBase.load(
+            os.path.join(str(tmp_path), "nothing-here"),
+            embedder=HashingEmbedder(),
+            vector_store=InMemoryVectorStore(),
+            lexical_index=SqliteFtsIndex(),
+        )
+    assert "manifest.json" in str(caught.value)
+
+
+def test_forget_then_save_does_not_write_the_removed_vectors(tmp_path) -> None:
+    """`_chunks` is authoritative, so a removed chunk must not survive in the file."""
+    paths = _two_pdfs(tmp_path)
+    original = _kb()
+    original.ingest(paths)
+    doc_id = original.documents()[0][0]
+    original.forget(doc_id)
+
+    saved = os.path.join(str(tmp_path), "saved.kb")
+    manifest = original.save(saved)
+
+    assert manifest["chunks"] == original.count()
+    expected_bytes = manifest["chunks"] * manifest["dimension"] * 4
+    assert os.path.getsize(os.path.join(saved, "vectors.bin")) == expected_bytes
+    restored = KnowledgeBase.load(
+        saved,
+        embedder=HashingEmbedder(),
+        vector_store=InMemoryVectorStore(),
+        lexical_index=SqliteFtsIndex(),
+    )
+    assert all(c.doc_id != doc_id for c in restored.chunks())

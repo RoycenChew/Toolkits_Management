@@ -38,6 +38,80 @@ reached it yet.
 
 ---
 
+## 0.6.0 - 2026-10-03
+
+The index now survives the process that built it. Everything inconvenient about
+this toolkit traced to one fact: a 38-minute ingest could not be reused.
+
+### Added
+
+- **`KnowledgeBase.save(directory)` and `KnowledgeBase.load(directory, **kwargs)`.**
+  Measured on the 49-paper arXiv corpus:
+
+      ingest (parse cache warm)     308.2 s     3036 chunks
+      save                            0.3 s
+      load                            0.7 s     3036 chunks
+
+  A cold ingest of that corpus takes **38 minutes**, of which about 85% is the
+  PDF parser. It now reloads in **under a second**, with identical chunk ids,
+  an identical answer to the same question, and all 3,036 provenance regions
+  intact. Total on disk is 10.8 MB for 212 MB of source PDFs.
+
+  A directory of plain files rather than one opaque blob, and no pickle, because
+  the index is the expensive artefact and has to survive a toolkit upgrade that
+  changes a dataclass:
+
+      manifest.json     format version, embedder version, counts, dimension
+      chunks.jsonl      one chunk per line, provenance included
+      documents.jsonl   doc_id -> source path, the supersede index
+      vectors.bin       float32 via `array`, row-aligned to chunks.jsonl
+
+  `load` reuses saved vectors when the embedder matches the one that produced
+  them, and **re-embeds from saved text when it does not** - so an index outlives
+  the model that built it, paying only the embedding cost and never the parser
+  again. Mixing vectors from two embedders remains refused; that guard already
+  existed and is what the manifest's `embedder_model_version` feeds.
+
+  `load` is a classmethod taking the same keyword arguments as the constructor,
+  so an index saved without an LLM can be loaded with one.
+
+- `KnowledgeBase._vectors`, a chunk_id -> embedding mirror, because no
+  `VectorStore` port method reads a vector back out: `search` returns
+  neighbours, not a named row. About 4.6 MB for 3,000 chunks at 384 dimensions,
+  against the tens of megabytes the chunk text already occupies.
+
+### Design note: why the mirror cannot drift
+
+Three code paths remove chunks - the stale sweep inside `_do_ingest`, `forget`,
+and supersede - and a second mirror of the same data is exactly the kind of
+thing that goes stale when a fourth appears. So `_chunks` is authoritative:
+`save` iterates it, re-embeds anything whose vector is missing, and never writes
+a vector whose chunk is gone. A stale or incomplete mirror therefore costs time,
+never correctness. The pops were added at all three sites as well, and a test
+asserts that forgetting a document before saving shrinks `vectors.bin` to match.
+
+### What this release got wrong
+
+- The first version of the reuse test asserted a hand-written version string
+  (`"hashing-256"`) against `HashingEmbedder`'s real one
+  (`"hashing-v1-d256-tri1"`), so it reported a re-embed and looked like an
+  implementation bug. The fixture now mirrors the wrapped embedder's version by
+  default and takes an explicit one only to simulate a *different* model. A test
+  double whose identity does not match the thing it doubles will manufacture
+  failures.
+- mypy caught a real shadowing mistake: `save` bound `vector` twice with
+  different types, once as `list[float]` from the re-embed path and once as
+  `Sequence[float] | None` from the mirror lookup.
+
+### Still open
+
+The CLI this unblocks is not built yet. It was the obvious next convenience and
+is now worth doing, because `toolkit ask papers.kb "..."` loads in a second
+rather than re-parsing 212 MB per question - which is why persistence had to
+come first, and why the earlier recommendation to build the CLI first was wrong.
+
+---
+
 ## 0.5.0 - 2026-10-03
 
 Closes the six remaining findings from the first real-world validation. Every
