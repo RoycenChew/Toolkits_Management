@@ -1,10 +1,19 @@
 # Reusable Engineering Toolkit
 
-> **Status:** Phases 0–5 complete — packaging, the spine (contracts + ports +
-> adapters), the ingestion layer (chunking, cache, governor, concurrency), the
-> `KnowledgeBase` pipeline, structured extraction, and the evaluation harness.
-> Remaining work is Phase 6: adapters, one at a time, driven by real projects.
-> See [ROADMAP.md](ROADMAP.md).
+> **Status:** 20 units of a 25 cap, across five layers. The spine (contracts,
+> ports, adapters), ingestion (chunking, cache, governor, concurrency), the
+> `KnowledgeBase` pipeline with a saveable index, structured extraction,
+> injection defense, graph and DAG execution, the evaluation harness, a CLI,
+> and bring-your-own-key generation with no vendor SDK.
+>
+> It has been run against real input once: 49 uncurated arXiv PDFs, which found
+> nine defects that 369 tests and a hand-built hostile corpus had all missed.
+> See [`validation/paper_triage/FINDINGS.md`](../validation/paper_triage/FINDINGS.md).
+> Every unit is still `documented` rather than `production_ready`; that gate
+> needs use in a real project, not a test count.
+>
+> [ROADMAP.md](ROADMAP.md) is kept as the original plan and its outcome;
+> [`../CHANGELOG.md`](../CHANGELOG.md) is the running record.
 >
 > ```python
 > from toolkit.pipelines import KnowledgeBase
@@ -69,19 +78,43 @@ a project. Each exposes one class with one method: `execute(input_data) -> outpu
 
 ## Layout
 
+Twenty units across five layers. Each package directory carries the same five
+files — `component.py` or equivalent, `models.py`, `__init__.py`, `README.md`,
+`requirements.txt` — so a unit can be copied out whole.
+
 ```
 toolkit/
-├── hybrid_ranker/       component.py  models.py  __init__.py  README.md  requirements.txt
-├── entity_resolution/   component.py  models.py  __init__.py  README.md  requirements.txt
-├── doc_layout/          component.py  models.py  __init__.py  README.md  requirements.txt
-├── durable_steps/       component.py  models.py  __init__.py  README.md  requirements.txt
-└── tests/test_toolkit.py
+├── core/                L0  contracts, error taxonomy, text normalisation
+├── ports.py             L0  seven protocols, two implementations each
+├── cache/               L1  content-addressed model-call cache
+├── governor/            L1  budget, rate limit, selective retry
+├── concurrency.py       L1  order-preserving bounded parallel map
+├── durable_steps/       L1  crash-resumable steps, leasing
+├── provider/            L1  find a key, endpoint and model      (standalone)
+├── adapters/            L2  the only place a vendor SDK is imported
+├── doc_layout/          L2  reading order, headings, furniture   (standalone)
+├── chunking/            L2  provenance-carrying chunks
+├── hybrid_ranker/       L2  RRF fusion, rerank cascade, MMR      (standalone)
+├── entity_resolution/   L2  blocking, Fellegi-Sunter + EM        (standalone)
+├── guardrails/          L2  indirect prompt-injection defense    (standalone)
+├── extraction/          L2  schema repair loop, grounding
+├── graph/               L2  deterministic graph algorithms       (standalone)
+├── dag/                 L2  DAG execution on a ready queue
+├── llm_http/            L2  the LLM port over plain HTTP, no SDK
+├── pipelines/           L3  KnowledgeBase: ingest, ask, save/load
+├── evaluation/          L4  golden sets, IR metrics, regression diff
+├── cli.py               L4  ingest / ask / eval / inspect
+└── tests/               thirteen suites
 ```
+
+`(standalone)` means `copy_tier: standalone` — the directory can be copied out
+on its own and imported, which `test_packaging.py` verifies by doing exactly
+that in a subprocess with the repository off `sys.path`.
 
 ## Every unit has a runnable snippet
 
 ```bash
-python examples/cookbook.py --list        # 15 unit snippets + 6 recipes
+python examples/cookbook.py --list        # 20 unit snippets + 9 recipes
 python examples/cookbook.py chunking      # just one
 ```
 

@@ -1,5 +1,7 @@
 # Guardrails Component
 
+**Layer 2 · imports nothing · `copy_tier: standalone`**
+
 ## What It Does
 
 Defends a retrieval pipeline against **indirect prompt injection** — instructions

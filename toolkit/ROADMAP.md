@@ -1,6 +1,18 @@
 # Toolkit Roadmap — from four components to a real engineering kit
 
-**Status of the honest answer to "is this enough?": no, and not close.**
+> **This is the original plan, written when the toolkit was four components.
+> It is kept because the buy-vs-build reasoning still holds and is still
+> re-read; its description of what exists is history, not status.**
+>
+> What has since shipped: the shared document model, ports with two
+> implementations each, LLM and embedding adapters, persistence, caching, cost
+> control, concurrency, packaging, evaluation — every gap this document opens by
+> naming. The toolkit is now 20 units under a 25 cap.
+>
+> For current status see [`../README.md`](../README.md); for what changed and
+> what each release got wrong see [`../CHANGELOG.md`](../CHANGELOG.md).
+
+**The honest answer at the time, to "is this enough?": no, and not close.**
 
 What exists today is four good algorithms with no spine. There is no shared document
 model, no way to call an LLM, no embeddings, no persistence, no caching, no cost

@@ -1,5 +1,7 @@
 # Chunker Component
 
+**Layer 2 · depends on `core` · `copy_tier: needs_core`**
+
 ## What It Does
 
 Turns a `Document` (ordered blocks with page + bbox geometry) into retrievable

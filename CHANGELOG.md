@@ -38,6 +38,90 @@ reached it yet.
 
 ---
 
+## 0.8.1 - 2026-10-03
+
+A documentation audit. No behaviour changed; several documents did, because
+they were describing a repository that no longer existed.
+
+### Corrected
+
+- **`llm_http` was absent from `README.md` entirely** - shipped in 0.8.0 without
+  ever being named on the front page. `provider` and `cli` were mentioned but
+  missing from the component table.
+- **"There are seven kinds"** - there are eight; `interface` arrived with the
+  CLI. The kind table also omitted `graph` and `provider` from `functions` and
+  `dag` and `llm_http` from `component`.
+- **"Six `Protocol`s"** - there are seven, now named in the row rather than
+  counted.
+- **"13 adapters"** - there are 14.
+- **"# 139 tests"** in a quick-start command - 368.
+- **`docs/MATURITY.md`: "139 tests asserting properties"** - 368.
+- **`docs/PLAYBOOK.md`: "All 15 units are currently documented"** - 20.
+- **The layout tree** omitted `llm_http/`, `cli.py` and `__main__.py`, and said
+  the stress corpus had 12 documents when `make_corpus.build()` emits 14.
+- **`toolkit/README.md` claimed "Phases 0-5 complete ... remaining work is Phase
+  6"**, and its layout section listed four units and one test file - the shape
+  of the repository roughly twenty commits earlier. Rewritten to the current 20
+  units across five layers, with `(standalone)` marked where `copy_tier` says
+  so, and it advertised "15 unit snippets + 6 recipes" where the cookbook has
+  20 and 9.
+- **`toolkit/ROADMAP.md` opened by asserting** there was no shared document
+  model, no way to call an LLM, no embeddings, no persistence, no caching, no
+  cost control, no evaluation, no concurrency and no packaging. Every one of
+  those shipped long ago. The buy-vs-build reasoning is still worth re-reading,
+  so the document is kept and now says plainly that it is the original plan and
+  what has since shipped, rather than reading as current status.
+- **Eleven unit READMEs had no `**Layer N - dependencies - copy_tier**`
+  header.** Six did, and all six were accurate. The other eleven now have one
+  generated from the registry.
+
+### Added: eight tests, so none of this can drift again
+
+`test_packaging.py` now checks the documentation the way it already checked the
+code:
+
+- every unit is named in `README.md`
+- the kind table's rows match the registry's kinds, **and** the prose count
+  above it matches too
+- no "N units" claim disagrees with the ledger
+- the port and adapter counts in prose match the registry's `api` lists
+- the layout tree lists every unit's path
+- the package README's snippet and recipe counts match the registry
+- no README still describes the four-component era
+- every package README's header matches the registry's layer, dependencies and
+  copy tier
+
+### What the audit says about the earlier releases
+
+Each of these numbers was correct when written. They rotted because the
+repository grew and nothing checked them - the same failure mode as the
+`durable_steps` limitation that still said "no DAG" after `dag` shipped, and the
+install instructions that were wrong for 7 of 15 units until a test copied each
+one out. **Prose is code that nothing executes.** The fix is never proofreading;
+it is a test.
+
+Verified by reintroducing five of the defects one at a time and confirming a
+test fails for each. Two attempts initially missed:
+
+* the "seven kinds" prose - the table-row check passed while the sentence above
+  it lied, so a separate assertion on the word was added;
+* `| **Tests** | 273 passing |` - the first guard searched for "N tests" and
+  that row says "N passing". Worse, the fix silently did nothing: the regex was
+  written through a shell heredoc, which turned `` into literal backspace
+  bytes, so the pattern matched nothing and reported a pass. Found by scanning
+  the repository for control characters, which is the same class of defect as
+  the BOM and CRLF damage in 0.2.0 and has the same cause - generating code
+  through a shell.
+
+**Known friction, accepted deliberately.** The test count is now asserted
+exactly, in four documents, so adding a single test requires updating all four.
+That is annoying and it is the only version that is actually true; the
+alternative is a number that is approximately right, which is how every one of
+these claims rotted in the first place. If it becomes a nuisance the right fix
+is to state the count in one place rather than to weaken the check.
+
+---
+
 ## 0.8.0 - 2026-10-03
 
 Two units extracted from PRism (same author, reused with permission) and

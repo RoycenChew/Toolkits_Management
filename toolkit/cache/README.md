@@ -1,5 +1,7 @@
 # Cache Component
 
+**Layer 1 · depends on `core` · `copy_tier: needs_core`**
+
 ## What It Does
 
 Content-addressed caching for model calls. `CachedEmbedder` and `CachedLLM` wrap any

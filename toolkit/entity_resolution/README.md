@@ -1,5 +1,7 @@
 # Entity Resolution Component
 
+**Layer 2 · imports nothing · `copy_tier: standalone`**
+
 ## What It Does
 
 Takes a set of records with no shared identifier and returns clusters of records

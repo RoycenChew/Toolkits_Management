@@ -25,7 +25,7 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 273 passing |
+| **Tests** | 369 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
@@ -221,18 +221,19 @@ Answer  ── text + citations resolving to page and bbox + retrieval trace
 ## The components
 
 Not every unit is the same shape, and pretending otherwise would be the kind of
-claim this repo tries not to make. There are seven kinds, recorded per unit in
+claim this repo tries not to make. There are eight kinds, recorded per unit in
 [`REGISTRY.json`](REGISTRY.json):
 
 | Kind | Shape | Units |
 |---|---|---|
-| **component** | one class, `execute(input_data) -> output` | `doc_layout` `chunking` `hybrid_ranker` `entity_resolution` `extraction` `guardrails` `durable_steps` |
+| **component** | one class, `execute(input_data) -> output` | `doc_layout` `chunking` `hybrid_ranker` `entity_resolution` `extraction` `guardrails` `durable_steps` `dag` `llm_http` |
 | **wrapper** | satisfies the port it wraps, so it composes by construction | `cache` `governor` |
-| **functions** | plain functions, no state to hold | `concurrency` |
+| **functions** | plain functions, no state to hold | `concurrency` `graph` `provider` |
 | **contracts** | types and protocols only | `core` `ports` |
 | **adapters** | the vendor containment boundary | `adapters` |
 | **facade** | wires the rest; `ingest_folder()` + `ask()` | `pipelines` |
 | **harness** | measures everything else | `evaluation` |
+| **interface** | how a human or a script reaches the rest | `cli` |
 
 `copy_tier` in the registry says what you must copy to reuse each one — `standalone`,
 `needs_core`, or `needs_package` — and `toolkit/tests/test_packaging.py` verifies every
@@ -242,8 +243,8 @@ repository off `sys.path`.
 | Component | What it does | Prior art |
 |---|---|---|
 | **`core/`** | The shared contracts: `Document`, `Block`, `Chunk`, `Provenance`, `Usage`, `SearchHit`, `BBox`, error taxonomy | own |
-| **`ports.py`** | Six `Protocol`s the toolkit needs from the outside world | own |
-| **`adapters/`** | 13 adapters, ≥2 per port, every vendor import lazy | — |
+| **`ports.py`** | Seven `Protocol`s the toolkit needs from the outside world: `DocumentSource`, `Embedder`, `LLM`, `VectorStore`, `LexicalIndex`, `Reranker`, `Cache` | own |
+| **`adapters/`** | 14 adapters, ≥2 per port, every vendor import lazy | — |
 | **`doc_layout/`** | Positioned text spans → ordered semantic blocks. Recursive XY-cut for columns, IoU overlap resolution, font-statistics heading levels, recurring-line boilerplate detection | XY-cut (Nagy & Seth 1984), Docling layout post-processing, Marker heading heuristics |
 | **`chunking/`** | `Document` → citable chunks. Structure-aware, heading breadcrumbs, whole-sentence overlap, word-split fallback, rendered-text budget enforcement | own (Chonkie's taxonomy for reference) |
 | **`hybrid_ranker/`** | Merge incomparable retriever scores. RRF, min-max / z-score fusion, budgeted rerank cascade, MMR diversification | RRF (Cormack 2009), Qdrant/Weaviate fusion, ColBERT/SPLADE cascades |
@@ -258,6 +259,9 @@ repository off `sys.path`.
 | **`concurrency.py`** | Order-preserving bounded parallel map with index-attributed failures | own |
 | **`pipelines/`** | `KnowledgeBase`: `ingest_folder()` + `ask()` with verified citations | own — the wiring |
 | **`evaluation/`** | Golden sets, IR metrics, regression diff naming broken cases | own harness; standard IR metrics |
+| **[`provider/`](toolkit/provider/README.md)** | Resolve an AI provider from the environment — key, endpoint, model, API style — or an error naming what to set. Redacts the key in `repr` | own; shortcut-table shape from PRism |
+| **[`llm_http/`](toolkit/llm_http/README.md)** | The `LLM` port over plain HTTP, no vendor SDK. Classifies failures without retrying them, and refuses to return a truncated answer as a success | own; two-shape split from PRism |
+| **`cli.py`** | `ingest` / `ask` / `eval` / `inspect` over a saved index. 38-minute corpus, 0.7-second reload | own |
 
 Each has its own README with architecture, input/output schema, limitations and
 integration notes.
@@ -616,7 +620,7 @@ repair loop · the cost/cache/governor layer · MinHash + LSH near-duplicate det
 ## Testing
 
 ```bash
-python -m pytest toolkit/tests -q          # 139 tests
+python -m pytest toolkit/tests -q          # 369 tests
 python -m ruff check toolkit examples      # lint
 python -m mypy toolkit                     # types, 42 files
 
@@ -796,7 +800,7 @@ feeling.
 │   ├── evaluate.py                three A/B experiments with a regression diff
 │   └── cookbook.py                one snippet per unit + the recipe catalogue
 ├── stress/                        hostile corpus + probe harness (exploratory)
-│   ├── make_corpus.py             12 documents, each attacking one assumption
+│   ├── make_corpus.py             14 documents, each attacking one assumption
 │   └── run_stress.py              probes; reports FAIL / KNOWN / PASS
 └── toolkit/
     ├── py.typed                   PEP 561 marker, without which consumers get no types
@@ -812,6 +816,7 @@ feeling.
     ├── governor/                  L1 budget, rate limit, retry
     ├── concurrency.py             L1 bounded parallel map
     ├── durable_steps/             L1 crash-resumable execution
+    ├── provider/                  L1 find a key, endpoint and model (standalone)
     ├── graph/                     L2 graph algorithms (standalone)
     ├── dag/                       L2 DAG execution, ready queue, resumable
     ├── doc_layout/                L2 reading order, headings, furniture
@@ -820,9 +825,12 @@ feeling.
     ├── entity_resolution/         L2 blocking, Fellegi-Sunter, clustering
     ├── guardrails/                L2 injection defense, output policy
     ├── extraction/                L2 repair loop, grounding, splitter
+    ├── llm_http/                  L2 the LLM port over plain HTTP, no SDK
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     360 tests, thirteen suites
+    ├── cli.py                     L4 ingest / ask / eval / inspect
+    ├── __main__.py                `python -m toolkit` -> cli.main
+    └── tests/                     369 tests, thirteen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

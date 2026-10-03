@@ -1,5 +1,7 @@
 # Governor Component
 
+**Layer 1 · depends on `core` · `copy_tier: needs_core`**
+
 ## What It Does
 
 Wraps any `LLM` with a spend budget, a rate limit and a retry policy. Satisfies the

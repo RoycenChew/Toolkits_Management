@@ -25,6 +25,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -707,3 +708,215 @@ def _main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(_main())
+
+
+# --------------------------------------------------------------------------
+# documentation accuracy
+# --------------------------------------------------------------------------
+
+
+def _read(relative_path):
+    with open(os.path.join(_ROOT, relative_path), encoding="utf-8") as handle:
+        return handle.read()
+
+
+def test_every_unit_is_named_in_the_root_readme():
+    """A unit the front page does not mention is a unit nobody will find.
+
+    Drift found by audit: `llm_http` shipped without ever appearing in
+    README.md, and three units were missing from the component table while the
+    counts above it still claimed the old totals.
+    """
+    readme = _read("README.md")
+    missing = sorted(unit_id for unit_id in UNITS if unit_id not in readme)
+    assert not missing, "not mentioned in README.md: " + ", ".join(missing)
+
+
+def test_the_readme_kind_table_lists_every_unit_under_its_own_kind():
+    """Each unit must appear on the row for the `kind` the registry gives it.
+
+    The table said "seven kinds" after an eighth was added, and `graph` and
+    `provider` were missing from the `functions` row, so the table described a
+    repository that no longer existed.
+    """
+    readme = _read("README.md")
+    rows = {}
+    for line in readme.splitlines():
+        match = re.match(r"\|\s*\*\*(\w+)\*\*\s*\|[^|]*\|([^|]*)\|", line)
+        if match and match.group(1) in {u["kind"] for u in UNITS.values()}:
+            rows[match.group(1)] = match.group(2)
+
+    kinds = sorted({u["kind"] for u in UNITS.values()})
+
+    # The prose above the table states the count in words, and saying "seven"
+    # over an eight-row table is exactly the drift this test exists for.
+    number_words = {
+        2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+        7: "seven", 8: "eight", 9: "nine", 10: "ten",
+    }
+    expected_phrase = "There are %s kinds" % number_words[len(kinds)]
+    assert expected_phrase in readme, (
+        "README should say %r; it has %d kinds in the registry"
+        % (expected_phrase, len(kinds))
+    )
+
+    assert set(rows) == set(kinds), (
+        "kind table rows %s do not match the registry's kinds %s" % (sorted(rows), kinds)
+    )
+    wrong = []
+    for unit_id, unit in UNITS.items():
+        if "`" + unit_id + "`" not in rows[unit["kind"]]:
+            wrong.append("%s (kind=%s)" % (unit_id, unit["kind"]))
+    assert not wrong, "units missing from their kind's row: " + ", ".join(sorted(wrong))
+
+
+def test_the_readme_does_not_claim_a_stale_unit_count():
+    """"N units" in prose has been wrong three times; now it cannot be."""
+    readme = _read("README.md")
+    claimed = set(re.findall(r"\b(\d+) units\b", readme))
+    wrong = {n for n in claimed if int(n) != len(UNITS)}
+    assert not wrong, (
+        "README claims %s units; the registry has %d" % (sorted(wrong), len(UNITS))
+    )
+
+
+def test_no_document_claims_a_stale_test_count():
+    """Test counts appear in four documents and rot silently.
+
+    The audit's own first pass missed `| **Tests** | 273 passing |` because it
+    searched for "N tests" and that row says "N passing" - which is why this
+    checks both spellings, in every document that carries one.
+    """
+    collected = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--collect-only"],
+        capture_output=True,
+        text=True,
+        cwd=_ROOT,
+        timeout=600,
+    )
+    assert collected.returncode == 0, collected.stdout[-600:]
+    actual = int(collected.stdout.strip().splitlines()[-1].split()[0])
+
+    wrong = []
+    for document in ("README.md", "toolkit/README.md", "docs/MATURITY.md", "docs/PLAYBOOK.md"):
+        text = _read(document)
+        for claimed in re.findall(r"\b(\d{2,4})\s+(?:tests|passing)\b", text):
+            if int(claimed) != actual:
+                wrong.append("%s claims %s" % (document, claimed))
+    assert not wrong, (
+        "%d tests are collected, but: %s" % (actual, "; ".join(sorted(set(wrong))))
+    )
+
+
+def test_prose_counts_of_ports_and_adapters_match_the_registry():
+    """The front page said six ports and 13 adapters; there were seven and 14."""
+    readme = _read("README.md")
+    ports = len(UNITS["ports"]["api"])
+    adapters = len(UNITS["adapters"]["api"])
+    words = {6: "Six", 7: "Seven", 8: "Eight", 9: "Nine"}
+    assert "%s `Protocol`s" % words.get(ports, ports) in readme, (
+        "README does not say there are %d ports" % ports
+    )
+    assert re.search(r"\b%d adapters\b" % adapters, readme), (
+        "README does not say there are %d adapters" % adapters
+    )
+
+
+def test_the_layout_tree_lists_every_unit_path():
+    """A unit absent from the layout tree is a unit the reader cannot locate."""
+    readme = _read("README.md")
+    tree = readme.split("## Repository layout", 1)
+    assert len(tree) == 2, "README has no '## Repository layout' section"
+    missing = []
+    for unit in UNITS.values():
+        leaf = unit["path"].rstrip("/").split("/")[-1]
+        name = leaf if leaf.endswith(".py") else leaf + "/"
+        if name not in tree[1]:
+            missing.append(name)
+    assert not missing, "layout tree omits: " + ", ".join(sorted(missing))
+
+
+def test_the_cookbook_counts_in_the_package_readme_are_right():
+    """`toolkit/README.md` advertised 15 snippets and 6 recipes; it was 20 and 9.
+
+    Counted from the registry rather than the cookbook, because every unit is
+    already required to declare a runnable `example` and every recipe an
+    `entry`, so the ledger is the authority for both numbers.
+    """
+    text = _read("toolkit/README.md")
+    units = len(UNITS)
+    recipes = len(REGISTRY["recipes"])
+    assert "%d unit snippets" % units in text, "should say %d unit snippets" % units
+    assert "%d recipes" % recipes in text, "should say %d recipes" % recipes
+
+
+def test_no_readme_still_describes_the_four_component_era():
+    """Two documents asserted a repository that had not existed for 20 commits.
+
+    `toolkit/README.md` claimed "Phases 0-5 complete ... remaining work is
+    Phase 6", and `ROADMAP.md` opened by stating there was no document model, no
+    way to call an LLM, no caching, no evaluation and no packaging - all of
+    which shipped long before the audit. The roadmap is now explicitly marked as
+    the original plan, which is why its text is allowed to say those things and
+    this test looks for the marker instead.
+    """
+    package = _read("toolkit/README.md")
+    assert "Phases 0" not in package, "the status block is stale again"
+
+    roadmap = _read("toolkit/ROADMAP.md")
+    assert "This is the original plan" in roadmap, (
+        "ROADMAP.md must say it is historical, or its claims read as current status"
+    )
+
+
+def test_every_package_readme_header_matches_the_registry():
+    """Each unit README states its layer, dependencies and copy tier up front.
+
+    Those three facts are what a reader needs before anything else - can I copy
+    this out, and what comes with it - and they are the three most likely to go
+    stale, because they change when code changes rather than when prose does.
+    Eleven READMEs had no such line at all until an audit added them.
+    """
+    problems = []
+    for unit_id, unit in sorted(UNITS.items()):
+        directory = os.path.join(_ROOT, unit["path"])
+        if not os.path.isdir(directory):
+            continue  # single-module units are covered by the package README
+        text = _read(os.path.join(unit["path"], "README.md"))
+        header = next(
+            (line for line in text.splitlines()[:8] if line.startswith("**Layer")), None
+        )
+        if header is None:
+            problems.append(unit_id + ": no '**Layer N ... copy_tier**' header")
+            continue
+
+        layer = re.search(r"Layer (\d+)", header)
+        if not layer or int(layer.group(1)) != unit["layer"]:
+            problems.append(
+                "%s: header layer %s, registry %d"
+                % (unit_id, layer.group(1) if layer else "?", unit["layer"])
+            )
+
+        tier = re.search(r"copy_tier: (\w+)", header)
+        if not tier or tier.group(1) != unit["copy_tier"]:
+            problems.append(
+                "%s: header tier %s, registry %s"
+                % (unit_id, tier.group(1) if tier else "?", unit["copy_tier"])
+            )
+
+        declared = set(unit["toolkit_deps"])
+        if "imports nothing" in header:
+            if declared:
+                problems.append(
+                    "%s: header says 'imports nothing' but depends on %s"
+                    % (unit_id, sorted(declared))
+                )
+        else:
+            named = set(re.findall(r"`([a-z_]+)`", header)) - {unit["copy_tier"]}
+            if declared - named:
+                problems.append(
+                    "%s: header omits %s" % (unit_id, sorted(declared - named))
+                )
+    assert not problems, "unit README headers disagree with the registry:\n  " + "\n  ".join(
+        problems
+    )

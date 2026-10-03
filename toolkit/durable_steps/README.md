@@ -1,5 +1,7 @@
 # Durable Steps Component
 
+**Layer 1 · imports nothing · `copy_tier: standalone`**
+
 ## What It Does
 
 Runs a sequence of steps so that each completed step is checkpointed. Re-invoking

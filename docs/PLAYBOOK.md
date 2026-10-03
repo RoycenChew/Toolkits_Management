@@ -45,7 +45,7 @@ Tests prove a component does what you thought. A real project proves you thought
 right thing.
 
 `REGISTRY.json` carries `used_in_projects` for every unit. Nothing reaches
-`production_ready` without an entry. **All 15 units are currently `documented` and
+`production_ready` without an entry. **All 20 units are currently `documented` and
 none are `production_ready`** — that is the honest state, and the model exists so the
 two are not confused.
 

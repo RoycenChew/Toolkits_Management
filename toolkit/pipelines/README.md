@@ -1,5 +1,7 @@
 # Pipelines — `KnowledgeBase`
 
+**Layer 3 · depends on `adapters`, `chunking`, `concurrency`, `core`, `durable_steps`, `guardrails`, `hybrid_ranker` · `copy_tier: needs_package`**
+
 ## What It Does
 
 Wires the whole toolkit into two operations:

@@ -1,5 +1,7 @@
 # Hybrid Ranker Component
 
+**Layer 2 · imports nothing · `copy_tier: standalone`**
+
 ## What It Does
 
 Merges several independently-ranked result lists into one ranking, then optionally

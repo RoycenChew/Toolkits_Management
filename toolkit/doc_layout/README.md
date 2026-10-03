@@ -1,5 +1,7 @@
 # Doc Layout Component
 
+**Layer 2 · imports nothing · `copy_tier: standalone`**
+
 ## What It Does
 
 Takes positioned text spans from any PDF extractor or OCR engine and returns

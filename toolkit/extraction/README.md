@@ -1,5 +1,7 @@
 # Extraction Component
 
+**Layer 2 · depends on `core` · `copy_tier: needs_core`**
+
 ## What It Does
 
 Document + schema → validated object, with **every field traceable back to the page

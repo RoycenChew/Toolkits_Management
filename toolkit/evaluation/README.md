@@ -1,5 +1,7 @@
 # Evaluation Component
 
+**Layer 4 · depends on `core`, `pipelines` · `copy_tier: needs_package`**
+
 ## What It Does
 
 Runs a golden set against a `KnowledgeBase`, reports retrieval and answer metrics,
