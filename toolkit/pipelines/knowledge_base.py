@@ -941,6 +941,11 @@ class KnowledgeBase:
             "chunks": len(chunks),
             "documents": len(self._doc_paths),
             "embedder_model_version": self._index_model_version,
+            # The class name, so a caller that did not build this index can
+            # reconstruct a compatible embedder - the CLI reads it to decide
+            # what to instantiate. Informational: `load` keys reuse off
+            # `embedder_model_version`, never off this.
+            "embedder_class": type(self.embedder).__name__,
             "dimension": dimension,
             "has_vectors": have_vectors,
             "chunk_max_tokens": self.chunk_config.max_tokens,

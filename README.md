@@ -29,7 +29,7 @@ for c in answer.citations:
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
-| **Components** | 17 units |
+| **Components** | 18 units |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
 | **Base dependencies** | none |
 | **Python** | 3.10+ |
@@ -94,6 +94,24 @@ pip install -e ".[dev]"     # + pytest, ruff, mypy
 python -m pytest toolkit/tests -q
 python -m pytest toolkit/tests -q --cov   # 94%, fails below 90%
 ```
+
+### Use it from the shell
+
+The index is built once and reloaded in under a second, so the second command
+is the one you run a hundred times:
+
+```bash
+toolkit ingest ./papers --save papers.kb       # or: python -m toolkit ...
+toolkit ask papers.kb "what limits the throughput?"
+toolkit eval papers.kb golden.jsonl --out metrics.json
+toolkit inspect papers.kb
+```
+
+Measured on 49 real arXiv PDFs (212 MB): **38 minutes to ingest, 0.7 seconds to
+reload.** `ask` exits 0 when it answered and 1 when it refused, so a script can
+tell the difference. A CLI is also the most portable interface here - every
+coding agent can run a shell command, including those that support neither MCP
+nor the Agent Skills format.
 
 Three runnable demos, all offline:
 
@@ -804,7 +822,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     305 tests, eleven suites
+    └── tests/                     317 tests, twelve suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

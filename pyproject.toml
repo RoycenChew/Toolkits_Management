@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolkit"
-version = "0.6.0"
+version = "0.7.0"
 description = "Reusable engineering components: document layout, hybrid ranking, entity resolution, durable execution."
 readme = "toolkit/README.md"
 requires-python = ">=3.10"
@@ -34,6 +34,9 @@ all = [
 
 # PEP 561: without this marker a consumer gets no type information at all,
 # however clean mypy is in this repo.
+[project.scripts]
+toolkit = "toolkit.cli:main"
+
 [tool.setuptools.package-data]
 "toolkit" = ["py.typed"]
 

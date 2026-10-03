@@ -38,6 +38,59 @@ reached it yet.
 
 ---
 
+## 0.7.0 - 2026-10-03
+
+### Added
+
+- **A command line interface** - `toolkit/cli.py`, reachable as `toolkit` or
+  `python -m toolkit`, with `ingest`, `ask`, `eval` and `inspect`.
+
+      toolkit ingest ./papers --save papers.kb
+      toolkit ask papers.kb "what limits the throughput?"
+      toolkit eval papers.kb golden.jsonl --out metrics.json
+      toolkit inspect papers.kb
+
+  On the 49-paper arXiv corpus: ingest 49/49 with 0 failures and 3,036 chunks,
+  then **`ask` answers in 2.2 seconds** including interpreter start and model
+  load. `eval` reproduces the bespoke validation runner's numbers exactly -
+  `hit_rate@10` 0.9048, `refusal_accuracy` 0.8750, `dataset_errors` 3,
+  `scored_cases` 21 - which is the cross-check that matters: the CLI is not a
+  second code path with its own answers.
+
+  `ask` exits 0 when it answered and 1 when it refused. Both are successful
+  runs of the program and only one found something, so the difference has to
+  reach the shell.
+
+  Per-document progress comes from `IngestConfig.on_document`, added in 0.5.0
+  for exactly this. Every vendor import sits inside a function, so `--help`
+  works on the stdlib-only install and the CI job asserting no vendor SDK in
+  `sys.modules` keeps passing.
+
+  This had to wait for 0.6.0. Without `save`/`load` every invocation would
+  re-parse the corpus - 38 minutes for 49 papers - which is no interface at all.
+  The earlier recommendation to build the CLI before persistence had the
+  dependency backwards.
+
+- `manifest.json` now records `embedder_class`, so `ask` and `eval` rebuild a
+  compatible embedder without being told which one. Informational only: `load`
+  still keys vector reuse off `embedder_model_version`.
+
+### What this release got wrong
+
+- The vendor-SDK test asserted against `sys.modules` in-process. It passed
+  alone and failed with the full suite, because by then other tests had
+  imported pdfplumber and fastembed and the assertion blamed the CLI for their
+  imports. It now runs in a fresh interpreter, which is the only place the
+  claim means anything.
+- `REGISTRY.json` declared `core` among the CLI's dependencies. `cli.py` does
+  not import it, and `test_declared_deps_match_the_code` said so immediately -
+  the ledger is checked against the import graph, not trusted.
+- `toolkit/__main__.py` tripped `test_registry_covers_every_unit_on_disk`. The
+  shim is four lines calling `cli.main` and carries no capability, so the test
+  now skips it rather than the ledger gaining an entry with nothing to say.
+
+---
+
 ## 0.6.0 - 2026-10-03
 
 The index now survives the process that built it. Everything inconvenient about

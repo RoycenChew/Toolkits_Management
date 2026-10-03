@@ -165,7 +165,10 @@ def test_registry_covers_every_unit_on_disk():
     on_disk = set()
     for name in sorted(os.listdir(_TOOLKIT)):
         full = os.path.join(_TOOLKIT, name)
-        if name in {"tests", "__pycache__"} or name.startswith("."):
+        # `__main__.py` is the `python -m toolkit` shim: four lines that call
+        # `cli.main`. It carries no capability, so registering it would add a
+        # ledger entry with nothing to say about it.
+        if name in {"tests", "__pycache__", "__main__.py"} or name.startswith("."):
             continue
         if os.path.isdir(full) and os.path.exists(os.path.join(full, "__init__.py")):
             on_disk.add(name)

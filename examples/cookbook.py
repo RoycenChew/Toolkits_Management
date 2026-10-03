@@ -710,6 +710,72 @@ def recipe_parallel_document_pipeline() -> None:
         % (second.status.value, len(second.replayed), len(second.completed)))
 
 
+def unit_cli() -> None:
+    """cli - ingest once to a saved index, then query it in a second."""
+    from toolkit.cli import main as cli_main
+
+    workspace = tempfile.mkdtemp(prefix="cookbook_cli_")
+    corpus = os.path.join(workspace, "corpus")
+    os.makedirs(corpus, exist_ok=True)
+    with open(os.path.join(corpus, "spec.md"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "# Power Supply\n\n"
+            "## Limits\n\n"
+            "The maximum supply voltage is 40V. Nominal current is 16A.\n"
+        )
+    index = os.path.join(workspace, "spec.kb")
+
+    out("$ toolkit ingest corpus --save spec.kb --quiet\n")
+    code = cli_main(["ingest", corpus, "--save", index, "--quiet"])
+    out("  exit %d\n" % code)
+
+    out("$ toolkit inspect spec.kb\n")
+    cli_main(["inspect", index])
+
+    out("$ toolkit ask spec.kb 'what is the maximum supply voltage?'\n")
+    code = cli_main(["ask", index, "what is the maximum supply voltage?"])
+    out("  exit %d  (0 means it answered, 1 means it refused)\n" % code)
+
+    out("$ toolkit ask spec.kb 'what is the warranty period?'\n")
+    code = cli_main(["ask", index, "what is the warranty period?"])
+    out("  exit %d  <- refused, because the corpus cannot answer it\n" % code)
+
+
+def recipe_cli_corpus_query() -> None:
+    """R8: build an index from the shell, then answer from it without re-parsing.
+
+    The point of the CLI is that parsing happens once. A real corpus of 49 arXiv
+    papers takes 38 minutes to ingest and reloads in under a second, so the
+    second command below is the one that gets run hundreds of times.
+
+    It is also the most portable interface the toolkit has: every coding agent
+    can run a shell command, including those that support neither MCP nor the
+    Agent Skills format.
+    """
+    from toolkit.cli import main as cli_main
+
+    workspace = tempfile.mkdtemp(prefix="cookbook_r8_")
+    corpus = os.path.join(workspace, "docs")
+    os.makedirs(corpus, exist_ok=True)
+    for name, body in (
+        ("relay.md", "# Relay\n\n## Ratings\n\nThe relay switches 240V at 10A.\n"),
+        ("sensor.md", "# Sensor\n\n## Ratings\n\nThe sensor reports in degrees Celsius.\n"),
+    ):
+        with open(os.path.join(corpus, name), "w", encoding="utf-8") as handle:
+            handle.write(body)
+
+    index = os.path.join(workspace, "docs.kb")
+    cli_main(["ingest", corpus, "--save", index, "--quiet"])
+
+    # Every later question reloads the index rather than the documents. Deleting
+    # the sources proves it.
+    for name in os.listdir(corpus):
+        os.remove(os.path.join(corpus, name))
+
+    out("sources deleted; the saved index still answers:\n\n")
+    cli_main(["ask", index, "what voltage does the relay switch?"])
+
+
 def recipe_measured_change() -> None:
     """R5 · Measured change
     evaluation + hybrid_ranker + pipelines. Never tune retrieval on a feeling.
@@ -766,6 +832,8 @@ SNIPPETS = {
     "recipe:trustworthy_extraction": recipe_trustworthy_extraction,
     "recipe:reconcile_records": recipe_reconcile_records,
     "recipe:parallel_document_pipeline": recipe_parallel_document_pipeline,
+    "cli": unit_cli,
+    "recipe:cli_corpus_query": recipe_cli_corpus_query,
     "recipe:measured_change": recipe_measured_change,
 }
 
