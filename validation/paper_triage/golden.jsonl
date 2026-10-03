@@ -1,0 +1,44 @@
+# Golden set for the paper-triage validation. PRE-REGISTERED.
+#
+# Written 2026-10-03, BEFORE any retrieval ran against this corpus. Every query
+# and every expected snippet was taken from the arXiv ABSTRACT in
+# corpus/metadata.json, never from retrieval output. That ordering is the whole
+# point: a golden set written after seeing results measures the system against
+# itself.
+#
+# Snippets are 4-10 word phrases chosen to avoid mathematics and LaTeX, because
+# the aim is to measure retrieval, not to litigate formula extraction. They are
+# expected to appear in the PDF's own text. Where a snippet turns out to appear
+# in NO indexed chunk, that is a finding about extraction (or about the
+# abstract differing from the body), and the run reports it as such.
+#
+# Cases 23-26 deliberately target papers from 1986-1996, the oldest material on
+# arXiv and the most likely to be badly digitised.
+# Cases 25-26 are unanswerable: nothing in a corpus of physics, maths, IR, CV,
+# CL and audio papers answers them. They test refusal, not retrieval.
+{"case_id": "q01-supernova-heating", "query": "What effects on core-collapse supernova hydrodynamics are investigated?", "expected_snippets": ["neutrino heating and alpha-particle recombination"], "tags": ["astro-ph", "2008"]}
+{"case_id": "q02-blazar-flux", "query": "What flux state was the blazar 3C 454.3 in during July 2008?", "expected_snippets": ["exceptionally high flux state"], "tags": ["astro-ph", "2008"]}
+{"case_id": "q03-lbg-parameters", "query": "Which physical parameters of Lyman break galaxies are estimated from broad-band photometry?", "expected_snippets": ["stellar mass, mean stellar population age"], "tags": ["astro-ph", "2008"]}
+{"case_id": "q04-preference-states", "query": "What do personalization encoders compress interaction histories into?", "expected_snippets": ["compress evolving interaction histories into preference states"], "tags": ["cs.IR", "2026"]}
+{"case_id": "q05-patent-length", "query": "How long are the documents that patent prior art search must process?", "expected_snippets": ["exceeding tens of thousands of tokens"], "tags": ["cs.IR", "2026"]}
+{"case_id": "q06-rag-tradeoff", "query": "What tradeoff must multi-hop RAG question answering systems balance?", "expected_snippets": ["balance retrieval quality with computational cost"], "tags": ["cs.IR", "2026", "rag"]}
+{"case_id": "q07-recsys-gpus", "query": "How large is the hardware fleet for the largest recommendation training workloads?", "expected_snippets": ["thousands of GPUs"], "tags": ["cs.IR", "2026"]}
+{"case_id": "q08-keyword-false-positive", "query": "How can keyword-matching benchmarks mislead about tool use in small models?", "expected_snippets": ["credit small models for tool use they never perform"], "tags": ["cs.CL", "2026"]}
+{"case_id": "q09-coding-agent-tasks", "query": "What kind of software engineering tasks do coding agents solve?", "expected_snippets": ["repository-level software engineering tasks"], "tags": ["cs.CL", "2026"]}
+{"case_id": "q10-diffusion-lm-strengths", "query": "Which tasks are discrete diffusion language models suited to?", "expected_snippets": ["bidirectional reasoning and global constraint satisfaction"], "tags": ["cs.CL", "2026"]}
+{"case_id": "q11-3d-generation-latents", "query": "What does high-resolution 3D generation increasingly rely on?", "expected_snippets": ["voxel latents and multi-stage pipelines"], "tags": ["cs.CV", "2026"]}
+{"case_id": "q12-diffusion-conditioning", "query": "How is the conditioning signal reused across denoising steps in diffusion transformers?", "expected_snippets": ["the same condition is reused at every denoising step"], "tags": ["cs.CV", "2026"]}
+{"case_id": "q13-avatar-bottleneck", "query": "What bottlenecks the real-time animation of 3D Gaussian avatars?", "expected_snippets": ["costly neural inference"], "tags": ["cs.CV", "2026"]}
+{"case_id": "q14-supersingular-crypto", "query": "Why do supersingular abelian surfaces matter for cryptography?", "expected_snippets": ["essential in isogeny-based cryptography"], "tags": ["math.NT", "2026"]}
+{"case_id": "q15-prime-geodesic", "query": "What is improved in the prime geodesic theorem?", "expected_snippets": ["prime geodesic theorem for the modular group"], "tags": ["math.NT", "2026"]}
+{"case_id": "q16-avsd-dataset", "query": "What is the AVSD-Scenes dataset?", "expected_snippets": ["audio-visual scene description dataset for urban environment"], "tags": ["eess.AS", "2026"]}
+{"case_id": "q17-transformer-depth-cost", "query": "What is the cost of increasing the depth of transformer models?", "expected_snippets": ["Each additional layer requires more parameters"], "tags": ["eess.AS", "2026"]}
+{"case_id": "q18-voice-conversion-correspondence", "query": "Why can frame-level correspondence not be assumed in one-shot voice conversion?", "expected_snippets": ["may contain different linguistic content"], "tags": ["eess.AS", "2026"]}
+{"case_id": "q19-outlier-metric", "query": "What is the Influential Outlier Metric built from?", "expected_snippets": ["change of measure transformation"], "tags": ["stat.ME", "2026"]}
+{"case_id": "q20-posterior-density", "query": "Why can the predictively oriented posterior not be computed by classical Monte Carlo?", "expected_snippets": ["does not admit an explicit density"], "tags": ["stat.ME", "2026"]}
+{"case_id": "q21-engression-outcomes", "query": "What kinds of multivariate outcome coordinates does the conditional distribution estimator handle?", "expected_snippets": ["continuous, binary, categorical, ordinal or rankings"], "tags": ["stat.ME", "2026"]}
+{"case_id": "q22-tipping-points", "query": "What does the paper on early warnings of critical transitions extend?", "expected_snippets": ["early warnings of critical transitions"], "tags": ["stat.ME", "2026"]}
+{"case_id": "q23-shellsort-technique", "query": "What technique simplifies and sharpens Yao's theorems about shellsort?", "expected_snippets": ["perturbation technique"], "tags": ["cs.DS", "1996", "old-pdf"]}
+{"case_id": "q24-black-strings", "query": "What do the exact conformal field theories constructed in three dimensions describe?", "expected_snippets": ["charged black strings in three dimensions"], "tags": ["hep-th", "1991", "old-pdf"]}
+{"case_id": "q25-unanswerable-gallium", "query": "What is the melting point of gallium nitride in degrees Celsius?", "unanswerable": true, "tags": ["unanswerable"]}
+{"case_id": "q26-unanswerable-k8s", "query": "How do I configure a Kubernetes ingress controller with TLS termination?", "unanswerable": true, "tags": ["unanswerable"]}

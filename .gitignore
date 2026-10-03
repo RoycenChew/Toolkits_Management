@@ -10,14 +10,12 @@ dist/
 .venv/
 venv/
 env/
-
 # Tool caches
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
-
 # Runtime artefacts the toolkit creates
 *.db
 *.db-wal
@@ -25,17 +23,17 @@ htmlcov/
 .lancedb/
 baseline.json
 report.json
-
 # Secrets — never commit these
 .env
 .env.*
 *.pem
 *.key
 credentials.json
-
 # Editors / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 desktop.ini
+validation/paper_triage/corpus/pdf/
+validation/paper_triage/results/

@@ -1,0 +1,863 @@
+[
+  {
+    "arxiv_id": "0812.4574v2",
+    "slug": "0812.4574v2",
+    "title": "Dynamics of a Spherical Accretion Shock with Neutrino Heating and Alpha-Particle Recombination",
+    "authors": [
+      "Rodrigo Fernández",
+      "Christopher Thompson"
+    ],
+    "abstract": "We investigate the effects of neutrino heating and alpha-particle recombination on the hydrodynamics of core-collapse supernovae. Our focus is on the non-linear dynamics of the shock wave that forms in the collapse, and the assembly of positive energy material below it. To this end, we perform time-dependent hydrodynamic simulations with FLASH2.5 in spherical and axial symmetry. These generalize our previous calculations by allowing for bulk neutrino heating and for nuclear statistical equilibrium between n, p and alpha. The heating rate is freely tunable, as is the starting radius of the shock relative to the recombination radius of alpha-particles. An explosion in spherical symmetry involves the excitation of an overstable mode, which may be viewed as the L=0 version of the `Standing Accretion Shock Instability'. In 2D simulations, non-spherical deformations of the shock are driven by plumes of material with positive Bernoulli parameter, which are concentrated well outside the zone of strong neutrino heating. The non-spherical modes of the shock reach a large amplitude only when the heating rate is also high enough to excite convection below the shock. The critical heating rate that causes an explosion depends sensitively on the initial position of the shock relative to the recombination radius. Weaker heating is required to drive an explosion in 2D than in 1D, but the difference also depends on the size of the shock. Forcing the infalling heavy nuclei to break up into n and p below the shock only causes a slight increase in the critical heating rate, except when the shock starts out at a large radius. This shows that heating by neutrinos (or some other mechanism) must play a significant role in pushing the shock far enough out that recombination heating takes over.",
+    "published": "2008-12-30T20:13:32Z",
+    "updated": "2009-09-20T17:40:01Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/0812.4574v2"
+  },
+  {
+    "arxiv_id": "0812.4582v1",
+    "slug": "0812.4582v1",
+    "title": "Correlated variability in the blazar 3C 454.3",
+    "authors": [
+      "E. W. Bonning",
+      "C. Bailyn",
+      "C. M. Urry",
+      "M. Buxton",
+      "G. Fossati",
+      "L. Maraschi",
+      "P. Coppi",
+      "R. Scalzo",
+      "J. Isler",
+      "A. Kaptur"
+    ],
+    "abstract": "The blazar 3C 454.3 was revealed by the Fermi Gamma-ray Space Telescope to be in an exceptionally high flux state in July 2008. Accordingly, we performed a multi-wavelength monitoring campaign on this blazar using IR and optical observations from the SMARTS telescopes, optical, UV and X-ray data from the Swift satellite, and public-release gamma-ray data from Fermi. We find an excellent correlation between the IR, optical, UV and gamma-ray light curves, with a time lag of less than one day. The amplitude of the infrared variability is comparable to that in gamma-rays, and larger than at optical or UV wavelengths. The X-ray flux is not strongly correlated with either the gamma-rays or longer wavelength data. These variability characteristics find a natural explanation in the external Compton model, in which electrons with Lorentz factor gamma~10^(3-4) radiate synchrotron emission in the infrared-optical and also scatter accretion disk or emission line photons to gamma-ray energies, while much cooler electrons (gamma~10^(1-2)) produce X-rays by scattering synchrotron or other ambient photons.",
+    "published": "2008-12-30T20:20:48Z",
+    "updated": "2008-12-30T20:20:48Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/0812.4582v1"
+  },
+  {
+    "arxiv_id": "0812.4649v3",
+    "slug": "0812.4649v3",
+    "title": "Towards a warped inflationary brane scanning",
+    "authors": [
+      "Heng-Yu Chen",
+      "Jinn-Ouk Gong"
+    ],
+    "abstract": "We present a detailed systematics for comparing warped brane inflation with the observations, incorporating the effects of both moduli stabilization and ultraviolet bulk physics. We explicitly construct an example of the inflaton potential governing the motion of a mobile D3 brane in the entire warped deformed conifold. This allows us to precisely identify the corresponding scales of the cosmic microwave background. The effects due to bulk fluxes or localized sources are parametrized using gauge/string duality. We next perform some sample scannings to explore the parameter space of the complete potential, and first demonstrate that without the bulk effects there can be large degenerate sets of parameters with observationally consistent predictions. When the bulk perturbations are included, however, the observational predictions are generally spoiled. For them to remain consistent, the magnitudes of the bulk effects need to be highly suppressed via fine tuning.",
+    "published": "2008-12-30T20:59:03Z",
+    "updated": "2009-08-31T14:52:45Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/0812.4649v3"
+  },
+  {
+    "arxiv_id": "0812.5111v1",
+    "slug": "0812.5111v1",
+    "title": "Biases and Uncertainties in Physical Parameter Estimates of Lyman Break Galaxies from Broad-band Photometry",
+    "authors": [
+      "Seong-Kook Lee",
+      "Rafal Idzi",
+      "Henry C. Ferguson",
+      "Rachel S. Somerville",
+      "Tommy Wiklind",
+      "Mauro Giavalisco"
+    ],
+    "abstract": "We investigate the biases and uncertainties in estimates of physical parameters of high-redshift Lyman break galaxies (LBGs), such as stellar mass, mean stellar population age, and star formation rate (SFR), obtained from broad-band photometry. By combining LCDM hierarchical structure formation theory, semi-analytic treatments of baryonic physics, and stellar population synthesis models, we construct model galaxy catalogs from which we select LBGs at redshifts z ~ 3.4, 4.0, and 5.0. The broad-band spectral energy distributions (SEDs) of these model LBGs are then analysed by fitting galaxy template SEDs derived from stellar population synthesis models with smoothly declining SFRs. We compare the statistical properties of LBGs' physical parameters -- such as stellar mass, SFR, and stellar population age -- as derived from the best-fit galaxy templates with the intrinsic values from the semi-analytic model. We find some trends in these distributions: first, when the redshift is known, SED-fitting methods reproduce the input distributions of LBGs' stellar masses relatively well, with a minor tendency to underestimate the masses overall, but with substantial scatter. Second, there are large systematic biases in the distributions of best-fit SFRs and mean ages, in the sense that single-component SED-fitting methods underestimate SFRs and overestimate ages. We attribute these trends to the different star formation histories predicted by the semi-analytic models and assumed in the galaxy templates used in SED-fitting procedure, and to the fact that light from the current generation of star-formation can hide older generations of stars. These biases, which arise from the SED-fitting procedure, can significantly affect inferences about galaxy evolution from broadband photometry.",
+    "published": "2008-12-30T20:20:43Z",
+    "updated": "2008-12-30T20:20:43Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/0812.5111v1"
+  },
+  {
+    "arxiv_id": "0812.5113v1",
+    "slug": "0812.5113v1",
+    "title": "Ultraviolet Spectra of Local Galaxies and their Link with the High-z Population",
+    "authors": [
+      "Claus Leitherer"
+    ],
+    "abstract": "The new generation of 8 to 10m class telescope is providing us with high-quality spectral information on the rest-frame ultraviolet region of star-forming galaxies at cosmological distances. The data can be used to address questions such as, e.g., the star-formation histories, the stellar initial mass function, the dust properties, and the energetics and chemistry of the interstellar medium. We can tackle these issues from a different angle by comparing the spectral properties of high-redshift galaxies to those of their counterparts in the local universe. I give a review of recent developments related to observations and empirical modeling of the ultraviolet spectra of local galaxies with recent star formation. The emphasis is on the youngest stellar populations with ages less than 100 Myr. Current uncertainties will be discussed, and areas where progress is needed in the future are highlighted.",
+    "published": "2008-12-30T20:38:39Z",
+    "updated": "2008-12-30T20:38:39Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/0812.5113v1"
+  },
+  {
+    "arxiv_id": "1912.12092v1",
+    "slug": "1912.12092v1",
+    "title": "Bremsstrahlung emission from nuclear reactions in compact stars",
+    "authors": [
+      "Sergei P. Maydanyuk",
+      "Kostiantyn A. Shaulskyi"
+    ],
+    "abstract": "Bremsstrahlung emission of photons during nuclear reactions inside dense stellar medium is investigated in the paper. For that, a new model of nucleus is developed, where nuclear forces combine nucleons as bound system in dependence on deep location inside compact star. A polytropic model of stars at index $n=3$ with densities characterized from white dwarf to neutron star is used. Bremsstrahlung formalism and calculations are well tested on existed experimental information for scattering of protons of light nuclei in Earth. We find the following. (1) In neutron stars a phenomenon of dissociation of nucleus is observed --- its disintegration on individual nucleons, starting from some critical distance between this nucleus and center of star with high density. We do not observe such a phenomenon in white dwarfs. (2) In the white dwarfs, influence of stellar medium imperceptibly affects on bremsstrahlung photons. Also, we have accurate description of bremsstrahlung photons in nuclear reactions in Sun. (3) For neutron stars, influence of stellar medium is essentially more intensive and it crucially changes the bremsstrahlung spectrum. The most intensive emission is from bowel of the star, while the weakest emission is from periphery.",
+    "published": "2019-12-27T13:35:35Z",
+    "updated": "2019-12-27T13:35:35Z",
+    "primary_category": "astro-ph",
+    "query_category": "astro-ph",
+    "pdf_url": "https://arxiv.org/pdf/1912.12092v1"
+  },
+  {
+    "arxiv_id": "2610.01270v1",
+    "slug": "2610.01270v1",
+    "title": "Not All Is Lost: Repairing Lossy User Preference States of Personalization Encoders",
+    "authors": [
+      "Parthiv Chatterjee",
+      "Dhiraj Golhar",
+      "Ummesalma Diwan",
+      "Sourish Dasgupta",
+      "Manjunath Joshi",
+      "Tanmoy Chakraborty"
+    ],
+    "abstract": "Personalization encoders compress evolving interaction histories into preference states used to rank items or condition text generation. A task head operating only on this state can miss useful evidence that remains in the frozen encoder's cached representations for individual timesteps. We study this recoverability gap and propose REPAIR, which compares cached representations with the current preference state in a compact learned coordinate space. It resolves corrective evidence over extended history, recent interactions, and localized bursts. It then selects which patterns at which timesteps contribute and adds their aggregate correction to the state before the task head. Encoder-host repair reuses representations from the existing forward computation without re-encoding the history. Across MovieLens, PENS, MIND, and Amazon Reviews 2023, training only REPAIR improves MRR and nDCG@10 for all twelve representative recommendation hosts while both encoder and task head remain frozen. Head-only finetuning of the same hosts yields smaller gains. For example, Mamba4Rec on MovieLens gains 3.96 MRR points, compared with 0.19 from head-only finetuning. Rank and temporal diagnostics support a compact, host-dependent corrective structure. In personalized generation, IMPerSumm improves the two reported weighted PerSEval variants, which assess responsiveness to user preference, by up to 25.23%. These results support post-compression state correction and distinguish the availability of preference evidence from its downstream use.",
+    "published": "2026-10-01T08:09:37Z",
+    "updated": "2026-10-01T08:09:37Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01270v1"
+  },
+  {
+    "arxiv_id": "2610.01463v1",
+    "slug": "2610.01463v1",
+    "title": "Learning to structure data from user-generated thematic corpora",
+    "authors": [
+      "Elishay Avram",
+      "Oren Glickman",
+      "Elad Yom-Tov"
+    ],
+    "abstract": "Thematic corpora, such as social media communities, contain unstructured text describing data that could be made structured. These include, for example, personal attributes, behaviors, and experiences mentioned in social media data. Extracting structured data is challenging as relevant attributes are often implicit, domain-dependent, and unknown in advance. We propose a fully automated, iterative framework for discovering and extracting domain-specific attribute schemas without a predefined ontology. Using large language models (LLMs), the framework induces candidate attributes, sequentially consolidates semantically overlapping attributes, and assigns a structural type. These enable creating an ontology and populating it with values from the corpus. The framework also enables the use of smaller LLMs for value extraction with estimable accuracy loss compared to large LLMs. We evaluate the framework on 5 health-related Reddit communities. Discovered attributes achieved 61% agreement with human-identified attributes, close to the 62% agreement between independent annotators. In most cases, the algorithm converges to a stable attribute set in fewer than 10 iterations. Structural type assignment achieves 82% accuracy, and value extraction reaches an F1 score of 0.8 compared to human annotations. Across four LLM families, smaller instruction-tuned models show statistically significant improvements in extraction performance with model scale when evaluated against a high-capacity reference LLM, supporting informed accuracy-cost trade-offs. These results show that attributes comparable to those identified by humans can be discovered automatically, enabling the creation of high-quality structured datasets economically and at scale. By removing the need for predefined ontologies, iterative model-driven schema induction offers a practical and scalable foundation for mining thematic corpora.",
+    "published": "2026-10-01T10:56:05Z",
+    "updated": "2026-10-01T10:56:05Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01463v1"
+  },
+  {
+    "arxiv_id": "2610.01533v1",
+    "slug": "2610.01533v1",
+    "title": "Neither Black nor White: Balancing Semantic and Collaborative Signals with Graph-Informed Semantic IDs (GrIS)",
+    "authors": [
+      "Aleksei Medvedev",
+      "Alejandro Ariza-Casabona",
+      "Steven Derby",
+      "Gonzalo Fiz Pontiveros",
+      "Xinyang Shao",
+      "Florian Spiess"
+    ],
+    "abstract": "Existing work on Semantic IDs (SIDs) for generative recommendation treats SID construction as a representation learning problem: encode items into a quantised latent space and read off codes. We argue this view is incidental. SID construction is, at heart, a recursive clustering problem, and once stated this way the natural object to cluster is a graph whose nodes carry semantic content and whose edges carry collaborative signal; SID assignment becomes a hierarchical graph partition. This reframing yields a unified framework, Graph-Informed Semantic IDs (GrIS), that subsumes prior approaches rather than displacing them. RQ-VAE and RQ-KMeans are recovered as the special case where the graph is empty, exposing content-only quantisation as one corner of a larger design space along two so-far-collapsed axes: graph construction and recursive partition algorithm. We explore two contrasting instantiations: RecDMoN, which performs hierarchical assignment via differentiable graph pooling, and RQ-GAE, which extends RQ-VAE with graph-aware item representations and a graph reconstruction objective. On multiple real-world datasets, GrIS consistently improves over CF-aware SOTA, with gains of up to +52\\% Hit@10. Because graph construction and partition are explicit, separately configurable components, improvements on either axis can be combined and evaluated systematically.",
+    "published": "2026-10-01T12:08:56Z",
+    "updated": "2026-10-01T12:08:56Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01533v1"
+  },
+  {
+    "arxiv_id": "2610.01553v1",
+    "slug": "2610.01553v1",
+    "title": "From Rules to Neural Graphs: Scalable Structured Prediction for Patent Prior Art Search",
+    "authors": [
+      "Nikolai Zenovkin",
+      "Sebastian Björkqvist"
+    ],
+    "abstract": "Patent search requires processing documents routinely exceeding tens of thousands of tokens. Most neural retrieval approaches operate on truncated inputs, limiting their effectiveness. Graph-based retrieval addresses this by representing each patent as a structured invention graph, but constructing these graphs relies on brittle rule-based parsers. We present the neural parser, which adapts biaffine attention from dependency parsing to predict invention graphs directly from patent text. Our local biaffine attention restricts pairwise scoring to a sliding window, reducing complexity from $O(n^2)$ to $O(n \\cdot w)$. Since local and global scoring share the same weights, the model trains on short sequences and deploys on documents exceeding 40,000 tokens without retraining. Distilled from 1 million rule-parsed documents, it surpasses its teacher at 3$\\times$ lower inference cost: neural graphs improve citation recall by 0.5% on short queries and 1.1% on full documents in a downstream Graph Transformer retrieval system.",
+    "published": "2026-10-01T12:20:35Z",
+    "updated": "2026-10-01T12:20:35Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01553v1"
+  },
+  {
+    "arxiv_id": "2610.01677v1",
+    "slug": "2610.01677v1",
+    "title": "From trends to optimized forecasts: Quantifying the skill and advancing the utility of dynamics-based early warnings for tipping events",
+    "authors": [
+      "Franco Du Plessis",
+      "Victoria Volodina",
+      "Chris A. Boulton",
+      "Muhammed Fadera",
+      "Sneha Kachhara",
+      "Timothy M. Lenton",
+      "Paul D. L. Ritchie",
+      "Peter Ashwin"
+    ],
+    "abstract": "In this paper we explore and extend the state of the art for understanding the skill and utility of early warnings of critical transitions (tipping points) in forced nonlinear systems. We highlight some of the challenges and opportunities of transforming estimates of a dynamics-based early warning system, based on trends in stability or resilience into forecasts with high skill. We highlight the importance of (a) quantifying consequences of possible actions in response to warnings that may be false negatives or positives (b) considering finite time horizon predictions to give verifiable predictions (c) assumptions necessary for valid extrapolations of trends. We evaluate approaches to improving the skill and utility of the forecast.",
+    "published": "2026-10-01T13:37:00Z",
+    "updated": "2026-10-01T13:37:00Z",
+    "primary_category": "stat.ME",
+    "query_category": "stat.ME",
+    "pdf_url": "https://arxiv.org/pdf/2610.01677v1"
+  },
+  {
+    "arxiv_id": "2610.01705v1",
+    "slug": "2610.01705v1",
+    "title": "AgentWebRec: Compact Evidence Fusion over the Agent Web for Personalized Recommendation",
+    "authors": [
+      "Haoran Qiang",
+      "Guannan Liu",
+      "Liang Zhang",
+      "Junjie Wu"
+    ],
+    "abstract": "LLM-based personal agents are emerging as persistent carriers of user semantics and intermediaries between users and recommendation platforms, maintaining richer user knowledge locally. As agents interact with one another, the conventional \\textit{User--Platform} relation evolves into a \\textit{User--Agent Web--Platform} information pathway, enabling distributed user-side information to complement item-side information. This new pathway, however, defies conventional recommendation: evidence is scattered across mutually opaque agents and reachable only through bounded queries, only a small portion of it is relevant to the current recommendation decision, and the responses returned by different agents are semantically heterogeneous. We therefore recast recommendation over the agent web as a \\emph{task-time evidence acquisition and fusion} problem under a finite evidence budget by deciding what to ask and what to keep, rather than learning from aggregated data. We propose AgentWebRec, a user-agent-oriented framework that progressively acquires and fuses distributed evidence for each user-item decision while keeping underlying agent memories local. It grounds each decision in platform-provided item semantics and task-relevant evidence from the target user agent's private memory, and conditionally queries neighboring user agents for complementary preference patterns when local evidence is insufficient. Experiments on four InstructRec datasets show that AgentWebRec consistently outperforms baseline recommenders, and ablations verify that the evidence layers contribute complementary gains.",
+    "published": "2026-10-01T13:51:13Z",
+    "updated": "2026-10-01T13:51:13Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01705v1"
+  },
+  {
+    "arxiv_id": "2610.01720v1",
+    "slug": "2610.01720v1",
+    "title": "Model-Agnostic Influential Outlier Detection for Mixed Effects and Multi-Level Models",
+    "authors": [
+      "Colin C Jones",
+      "David A Campbell",
+      "Yan Liu"
+    ],
+    "abstract": "Influential Outlier Detection is developed for mixed-effects models on clustered data. The Influential Outlier Metric is defined as a combination of SHapley Additive exPlanantion (SHAP) values and model residuals, both of which undergo a change of measure transformation. Building on previous work showcasing the suitability of using Normalizing flows to map arbitrary distributions to a flexible base distribution for statistical inference, the Normalizing Flows are constructed to allows contextual information and also provide a goodness of fit diagnostic for model evaluation. The use of SHAP values in the construction moves away from model specific tools and instead provides point-wise model agnostic influential outlier. The advantages and limitations of this approach are examined in several models including the linear model, the random forest, and gradient-boosted trees.",
+    "published": "2026-10-01T13:57:59Z",
+    "updated": "2026-10-01T13:57:59Z",
+    "primary_category": "stat.ME",
+    "query_category": "stat.ME",
+    "pdf_url": "https://arxiv.org/pdf/2610.01720v1"
+  },
+  {
+    "arxiv_id": "2610.01767v1",
+    "slug": "2610.01767v1",
+    "title": "A Matryoshka Hierarchical RAG for Efficient Multi-Hop Question Answering",
+    "authors": [
+      "Gianluca Bonifazi",
+      "Christopher Buratti",
+      "Michele Marchetti",
+      "Federica Parlapiano",
+      "Giulia Quaglieri",
+      "Davide Traini",
+      "Domenico Ursino",
+      "Luca Virgili"
+    ],
+    "abstract": "Retrieval-Augmented Generation (RAG) systems for multi-hop Question Answering (QA) must balance retrieval quality with computational cost. This cost is incurred during indexing time, through the use of expensive Knowledge Graphs (KGs) or Large Language Models (LLMs) to generate summaries, or during querying, through iterative LLM-driven retrieval. To reduce it while maintaining retrieval quality, we present MatRAG, a hierarchical framework that combines RAG systems with Matryoshka Representation Learning (MRL). MatRAG addresses both kinds of cost by aligning the semantic hierarchy of a clustering structure with the nested structure of MRL. Specifically, it organizes the corpus of documents into a Directed Acyclic Graph (DAG) of clusters with progressively coarser granularity. Each level is indexed by a lower Matryoshka dimension. MatRAG pairs an iterative, top-down traversal of the DAG with an entity-driven mechanism that controls the hop budget and re-ranks candidates. We evaluated MatRAG on three standard multi-hop QA benchmarks against seven representative baselines. MatRAG outperforms its strongest competitors in terms of retrieval quality; furthermore, it reduces indexing costs by avoiding KG construction and LLM-based summarization, and lowers query-time costs through dimension-aware similarity.",
+    "published": "2026-10-01T14:25:23Z",
+    "updated": "2026-10-01T14:25:23Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.01767v1"
+  },
+  {
+    "arxiv_id": "2610.01818v1",
+    "slug": "2610.01818v1",
+    "title": "Markov chain Monte Carlo for predictively oriented posteriors",
+    "authors": [
+      "Yann McLatchie",
+      "Louis Sharrock",
+      "David T. Frazier",
+      "Jeremias Knoblauch"
+    ],
+    "abstract": "The predictively oriented posterior offers principled uncertainty quantification, even under model misspecification. However, it does not admit an explicit density and therefore cannot be computed using classical Monte Carlo sampling algorithms. We remedy this by deriving an approximation to the predictively oriented posterior whose density can be evaluated point-wise, and whose approximation error decays rapidly. These results are illustrated on case studies from epidemiology, spatial statistics, and low-energy nuclear physics.",
+    "published": "2026-10-01T14:52:07Z",
+    "updated": "2026-10-01T14:52:07Z",
+    "primary_category": "stat.ME",
+    "query_category": "stat.ME",
+    "pdf_url": "https://arxiv.org/pdf/2610.01818v1"
+  },
+  {
+    "arxiv_id": "2610.01823v1",
+    "slug": "2610.01823v1",
+    "title": "Generalized Engression Models",
+    "authors": [
+      "Xinwei Shen",
+      "Zijian Guo",
+      "Francis Bach"
+    ],
+    "abstract": "We consider estimating the conditional distribution of a multivariate outcome given covariates when its coordinates may be continuous, binary, categorical, ordinal or rankings, and are conditionally dependent on one another. Different statistical methods have been developed for each outcome type, and most of them target a summary of the conditional distribution, such as the mean of each coordinate, rather than the joint distribution of the outcome vector. We develop generalized engression models, a unified nonparametric distributional regression framework for outcomes of any type. The proposed method builds upon engression, a scoring-rule-based deep generative model, and introduces a data-type-specific link function and a stochastic perturbation that smooths the loss, enabling gradient-based training even with discontinuous links. We establish universal representation results for continuous, discrete and mixed outcomes. In simulations and in two applications, 242 species in a community ecology benchmark and a 17-dimensional mixed-type health outcome, the method matches type-specific models on marginal scores, improves on them on the joint distribution, and matches or exceeds purpose-built state-of-the-art joint species distribution models. Software is available in Python.",
+    "published": "2026-10-01T14:57:35Z",
+    "updated": "2026-10-01T14:57:35Z",
+    "primary_category": "stat.ME",
+    "query_category": "stat.ME",
+    "pdf_url": "https://arxiv.org/pdf/2610.01823v1"
+  },
+  {
+    "arxiv_id": "2610.01861v1",
+    "slug": "2610.01861v1",
+    "title": "AVSD-Scenes: A Dataset for Audio-Visual Description of Urban Scenes",
+    "authors": [
+      "Dhanunjaya Varma Devalraju",
+      "Arshdeep Singh",
+      "Mark D. Plumbley"
+    ],
+    "abstract": "Natural language descriptions can provide rich semantic representations of audio-visual urban scenes, yet datasets that jointly describe both auditory and visual information remain limited. In this paper, we introduce AVSD-Scenes, a paired audio-visual scene description dataset for urban environments. The dataset contains 12,291 audio-visual scene descriptions generated from the TAU Urban Audio-Visual Scenes dataset. To construct the dataset, we first generate audio- and visual-based descriptions using Qwen2-Audio-7B and Qwen2.5-VL-7B, respectively. These modality-specific descriptions are then combined using large language models, namely Qwen3-14B, Mistral-Small-3.2-24B-Instruct-2506, and Gemma-3-27B-it, to produce multimodal descriptions that capture complementary information from both modalities. We benchmark AVSD-Scenes using semantic alignment, cross-modal retrieval, scene classification, LLM-as-a-judge evaluation, and human subjective assessment. Results show that multimodal descriptions improve semantic alignment and cross-modal retrieval performance compared with modality-specific descriptions while preserving strong scene-discriminative information. The generated descriptions achieve up to 94.5% accuracy in urban scene classification, while combining audio, visual, and description embeddings further improves accuracy to 95.4%. Furthermore, the descriptions remain highly scene-discriminative even when scene labels are removed from the prompting instructions, indicating that they capture semantic information derived from the audio-visual content rather than merely reflecting label information.",
+    "published": "2026-10-01T15:24:23Z",
+    "updated": "2026-10-01T15:24:23Z",
+    "primary_category": "eess.AS",
+    "query_category": "eess.AS",
+    "pdf_url": "https://arxiv.org/pdf/2610.01861v1"
+  },
+  {
+    "arxiv_id": "2610.01899v1",
+    "slug": "2610.01899v1",
+    "title": "Square products of factorials and a conjecture of Erdős and Graham",
+    "authors": [
+      "Fedir Yudin"
+    ],
+    "abstract": "For $n\\ge2$ let $F(n)$ be the least $k\\ge2$ such that $n!$ is the largest factor in a product of $k$ distinct factorials that is a perfect square, and let $D_k(X)$ be the number of $n\\le X$ with $F(n)=k$. Erdos and Graham asked for the order of growth of $D_k(X)$ for $3\\le k\\le6$, and conjectured that $D_6(X)\\gg X$. We prove that $D_3(X)=κ_3\\sqrt X+O_\\varepsilon(X^{2/5+\\varepsilon})$ with an explicit constant $κ_3=2.7097\\ldots$, and that $D_5(X)\\asymp D_6(X)\\asymp X$. Together with classical facts, this determines the order of growth of $D_k(X)$ for every $k$. The exponent $2/5$ comes from balancing a uniform bound for Pell equations against Gallagher's larger sieve, with residue restrictions supplied by the Weil bound. For five and six factors we restrict to integers with a prime factor exceeding $X^{1-α}$, where $α>0$ is small and fixed. We exclude shorter representations by combining an equidistribution estimate for primes of Matomaki, Radziwill, Shao, Tao and Teravainen with the large sieve. In an appendix we use a zero-sum theorem for finite abelian groups to construct, for every $m\\ge2$, perfect $m$-th powers that are products of a bounded number of distinct factorials with arguments given by fixed affine functions.",
+    "published": "2026-10-01T15:46:53Z",
+    "updated": "2026-10-01T15:46:53Z",
+    "primary_category": "math.NT",
+    "query_category": "math.NT",
+    "pdf_url": "https://arxiv.org/pdf/2610.01899v1"
+  },
+  {
+    "arxiv_id": "2610.01924v1",
+    "slug": "2610.01924v1",
+    "title": "Supersingularity and Superspeciality Verification of Abelian Surfaces",
+    "authors": [
+      "Maria Corte-Real Santos",
+      "Gioella Lorenzon",
+      "Krijn Reijnders"
+    ],
+    "abstract": "Supersingular abelian surfaces are essential in isogeny-based cryptography. Despite this, we have no efficient algorithm to verify if a given abelian surface is supersingular. In this work, we initiate this research topic by giving an efficient Monte Carlo algorithm to verify if an abelian surface over $\\mathbb{F}_p$ is supersingular in $O(\\log p)$ with negligible failure probability, and an efficient conclusive algorithm if the order is smooth. We derive this algorithm by a careful analysis on the structure of supersingular Jacobians over $\\mathbb{F}_p$. Furthermore, we derive efficient algorithms to verify if an abelian variety of any dimension is minimal or maximal, and to verify if a Jacobian of any dimension is superspecial.",
+    "published": "2026-10-01T15:57:58Z",
+    "updated": "2026-10-01T15:57:58Z",
+    "primary_category": "math.NT",
+    "query_category": "math.NT",
+    "pdf_url": "https://arxiv.org/pdf/2610.01924v1"
+  },
+  {
+    "arxiv_id": "2610.01926v1",
+    "slug": "2610.01926v1",
+    "title": "LAST: Looped Audio Spectrogram Transformer",
+    "authors": [
+      "Haider Al-Tahan",
+      "Sean O'Brien",
+      "Anastasia Razdaibiedina",
+      "N. Apurva Ratan Murty"
+    ],
+    "abstract": "Increasing depth of transformer models improves recognition, but it comes at a substantial cost. Each additional layer requires more parameters, which makes the process computationally inefficient. We ask whether additional processing can focus on integrating features already computed. Looped Audio Spectrogram Transformer (LAST) first processes all tokens, then reuses the same blocks to refine only the class token over fixed audio features, thereby making later passes inexpensive. On AudioSet, ten-pass LAST achieves 0.345 mean average precision, exceeding a twelve-layer sequential transformer by 2.1% relative with 49.4% fewer parameters, 42% fewer multiply-accumulate operations, and 9.8% higher measured throughput. Across separately trained models, increasing the pass count from two to ten improves accuracy while adding only 1.2% computation. Further evaluations show improved robustness to temporal masking and various other auditory augmentations, with better generalization on classification tasks with music, environmental, and event sounds.",
+    "published": "2026-10-01T15:59:09Z",
+    "updated": "2026-10-01T15:59:09Z",
+    "primary_category": "eess.AS",
+    "query_category": "eess.AS",
+    "pdf_url": "https://arxiv.org/pdf/2610.01926v1"
+  },
+  {
+    "arxiv_id": "2610.01952v1",
+    "slug": "2610.01952v1",
+    "title": "Shared-State Local Translations for Training-Free Voice Conversion",
+    "authors": [
+      "Yangyang Qu",
+      "Michele Panariello",
+      "Massimiliano Todisco",
+      "Nicholas Evans"
+    ],
+    "abstract": "In one-shot training-free voice conversion (VC), the source and reference utterances may contain different linguistic content, so reliable frame-level correspondence between them cannot be assumed. We propose StateVC, which jointly defines a common set of local regions from pooled frame-level WavLM representations of the source and reference utterances; we refer to these regions as states. These shared states are obtained by fitting a pair-specific Gaussian mixture model to the pooled representations, without explicit source--reference frame matching. Within each state, StateVC estimates a source-to-reference mean shift in the original WavLM space. Source-frame posterior probabilities then combine the state-specific shifts so that different frames can receive different local updates. For the LibriSpeech one-shot protocol, StateVC achieves the lowest word error rate (WER) and character error rate (CER) among the evaluated systems, at 8.01% and 3.22%, respectively, with a speaker similarity (SIM) of 0.9512. It also achieves the highest mean perceived speaker similarity among the evaluated systems and the highest mean naturalness among the evaluated training-free systems.",
+    "published": "2026-10-01T16:12:05Z",
+    "updated": "2026-10-01T16:12:05Z",
+    "primary_category": "eess.AS",
+    "query_category": "eess.AS",
+    "pdf_url": "https://arxiv.org/pdf/2610.01952v1"
+  },
+  {
+    "arxiv_id": "2610.01961v1",
+    "slug": "2610.01961v1",
+    "title": "Multi-sample Synthetic Supervision for Accent Conversion",
+    "authors": [
+      "Yangyang Qu",
+      "Michele Panariello",
+      "Massimiliano Todisco",
+      "Nicholas Evans"
+    ],
+    "abstract": "Accent conversion (AC) requires changing accent while preserving speaker identity and linguistic content, yet parallel recordings are scarce. Speech synthesis provides an alternative source of supervision, but generated targets vary in accent realization and source preservation. We propose a multi-sample synthetic supervision framework that constructs conversion targets by jointly assessing these properties across candidate waveforms for each source--accent condition. Selected candidates provide associated discrete speech codes, representing linguistic content, prosody, and speaking style, as targets for accent-conditioned autoregressive adaptation. Compared with using one generated target per training example, our method improves target-accent classification accuracy by 2.49 percentage points, while speaker similarity remains nearly unchanged, and word error rate increases by 0.29 percentage points. Across six target accents, our method achieves 7.81% WER and the highest mean listening ratings among evaluated systems.",
+    "published": "2026-10-01T16:16:27Z",
+    "updated": "2026-10-01T16:16:27Z",
+    "primary_category": "eess.AS",
+    "query_category": "eess.AS",
+    "pdf_url": "https://arxiv.org/pdf/2610.01961v1"
+  },
+  {
+    "arxiv_id": "2610.01966v1",
+    "slug": "2610.01966v1",
+    "title": "Infinite free pro-p products as absolute Galois groups",
+    "authors": [
+      "Tamar Bar-On"
+    ],
+    "abstract": "In this paper we prove a generalized version of Mel'nikov's Criterion, which has also been proved by Haran, and use it in order to connect the realization as absolute Galois groups of free pronite and free pro-p products of a sheaf of pro-p groups.",
+    "published": "2026-10-01T16:18:14Z",
+    "updated": "2026-10-01T16:18:14Z",
+    "primary_category": "math.NT",
+    "query_category": "math.NT",
+    "pdf_url": "https://arxiv.org/pdf/2610.01966v1"
+  },
+  {
+    "arxiv_id": "2610.01998v1",
+    "slug": "2610.01998v1",
+    "title": "On the prime geodesic theorem",
+    "authors": [
+      "Alberto Acosta Reche"
+    ],
+    "abstract": "We improve the error term in the prime geodesic theorem for the modular group. More generally, our result applies to any congruence subgroup of any indefinite quaternion algebra over $\\mathbb{Q}$.",
+    "published": "2026-10-01T16:31:17Z",
+    "updated": "2026-10-01T16:31:17Z",
+    "primary_category": "math.NT",
+    "query_category": "math.NT",
+    "pdf_url": "https://arxiv.org/pdf/2610.01998v1"
+  },
+  {
+    "arxiv_id": "2610.02041v1",
+    "slug": "2610.02041v1",
+    "title": "Transportability methods for failure-time outcomes under assumptions for relative effect measures",
+    "authors": [
+      "Sarah E Robertson",
+      "Lan Wen",
+      "Lawson Ung",
+      "Jon A Steingrimsson",
+      "Issa J Dahabreh"
+    ],
+    "abstract": "In certain clinical areas, relative effect measures are believed to remain more constant across populations than absolute measures. This suggests that exchangeability assumptions on the relative scale may be more plausible than those on the absolute scale. Despite this, most methods for extending trial results to a target population rely on strong and often implausible distributional exchangeability assumptions between the trial and target population (distributional transportability). We propose identification results for failure-time outcomes under a more plausible assumption of exchangeability on the relative scale, focusing primarily on the risk ratio (risk ratio transportability). We applied these methods to estimate the effect of screening strategies on all-cause mortality, using data from the National Lung Screening Trial (NLST) to a nationally representative target population from the National Health Interview Survey (NHIS). All-cause mortality data was available from NHIS, along with no confounding of screening, allowing a falsification assessment of the distributional transportability analysis against the observed baseline risk.We found that this approach substantially underestimated mortality risk. In comparison, the risk ratio transportability approach produced reasonable estimates that matched the baseline risk.Thus, assumptions on relative scales may be more plausible in certain settings where distributional transportability fails.",
+    "published": "2026-10-01T16:53:23Z",
+    "updated": "2026-10-01T16:53:23Z",
+    "primary_category": "stat.ME",
+    "query_category": "stat.ME",
+    "pdf_url": "https://arxiv.org/pdf/2610.02041v1"
+  },
+  {
+    "arxiv_id": "2610.02057v1",
+    "slug": "2610.02057v1",
+    "title": "Optimizing Effective Training Time for Large-Scale Recommendation Systems",
+    "authors": [
+      "Mingming Ding",
+      "Ruilin Chen",
+      "Yuzhen Huang",
+      "Hang Qi",
+      "Menglu Yu",
+      "San Tan",
+      "Damian Reeves",
+      "Boris Sarana",
+      "Kevin Tang",
+      "Satendra Gera",
+      "Gagan Jain",
+      "Sahil Shah",
+      "Vishwa Karia",
+      "Fuzail Khan",
+      "Yashasvi Makin",
+      "Edward Z. Yang",
+      "Oguz Ulgen",
+      "Jia Chen Ren",
+      "Laith Sakka",
+      "Mayank Garg",
+      "Meet Vadakkanchery",
+      "Aici Lin",
+      "Wei Sun",
+      "Mengjiao Zhou",
+      "Shuai Yang",
+      "Junqing Zhou",
+      "Max Leung",
+      "Apoorv Purwar",
+      "Musharaf Sultan",
+      "John Bocharov",
+      "Zhenyu Tang",
+      "Vivek Trehan"
+    ],
+    "abstract": "Lifecycle overhead silently consumes accelerator capacity across large-scale recommendation training fleets. Our largest recommendation workloads process tens of billions train- ing examples per day on thousands of GPUs. Before this work, only 50-60% of their end-to-end wall time advanced training on new data. We present a fleet-scale study of this lifecycle overhead and a set of optimizations spanning the full training stack. We use Effective Training Time (ETT%) as an operational framework to instrument lost time, localize it to independently owned infrastructure components, and expose work repeated across job restarts. This analysis guides optimizations like communication elimination and pipeline overlap during trainer initialization; dynamic-shape handling, autotuning pruning, and reusable Py- Torch 2 compilation caches; asynchronous checkpointing; stan- dalone model publishing; and reductions in recovery cost. We evaluate the optimizations on representative models and measure their impacts in our training fleet. ETT% improves on every benchmark, by 15.5% on average, and reaches 85% on our largest workload. Fleet-wide ETT% rose from about 80% to above 90% after deployment.",
+    "published": "2026-10-01T17:02:16Z",
+    "updated": "2026-10-01T17:02:16Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.02057v1"
+  },
+  {
+    "arxiv_id": "2610.02111v1",
+    "slug": "2610.02111v1",
+    "title": "On The Index of Polynomial Compositions over Valued Fields",
+    "authors": [
+      "Anuj Jakhar",
+      "Ravi Kalwaniya",
+      "Shanta Laishram",
+      "Prabhakar Yadav"
+    ],
+    "abstract": "Determining whether an algebraic number field admits a power integral basis is a classical problem, but it can be difficult for fields defined by polynomial compositions and dynamical iterates. In this paper, we study the monogeneity of compositions $f(h(x))$, where $f(x)$ and $h(x)$ are monic polynomials over an arbitrary Krull valuation ring and $h(x)$ is a trinomial. We derive explicit formulas for the discriminant of the composition and use them to characterize when $f(h(x))$ generates a monogenic field. In particular, we relate the monogeneity of the composition to that of $f(x)$ and to explicit square-free conditions on the critical values of $h(x)$. We further extend the results to polynomial iteration and obtain a criterion for the monogeneity of binomial iterates, yielding new infinite families of monogenic fields. Finally, we give quantitative results and illustrate our criteria with several examples.",
+    "published": "2026-10-01T17:31:44Z",
+    "updated": "2026-10-01T17:31:44Z",
+    "primary_category": "math.NT",
+    "query_category": "math.NT",
+    "pdf_url": "https://arxiv.org/pdf/2610.02111v1"
+  },
+  {
+    "arxiv_id": "2610.02142v1",
+    "slug": "2610.02142v1",
+    "title": "Keyword Harnesses Fail Open: A Cheap Diagnostic Ladder for Tool-Use Claims in Small Language Models",
+    "authors": [
+      "Juan S. Santillana"
+    ],
+    "abstract": "Keyword-matching benchmarks can credit small models for tool use they never perform. We document such a false positive in a matched-architecture pair of Spanish security language models and propose a ladder of strict, cheap diagnostics. A 661.6M parameter model (approx. 65% code/technical text; no dedicated SFT) and a 1,109M model (web-heavy multi-phase curriculum; 6B-token tool-SFT) share decoder, tokenizer, and special tokens, scoring almost identically on lenient tool-use metrics (B4: 0.660 vs. 0.650). Verbatim-reproduction checks on training examples separate them completely: the 600M emits valid tool calls with generalized arguments on 6/6 examples; the 1B does so on 0/6 across checkpoints. A first-token probe localizes the 1B's failure to a missing prior (prob. $10^{-4}$--$10^{-5}$ on <|tool_call|>), which was erased by its web-heavy training phase. A targeted SFT recipe (diverse corpus, 5x higher learning rate, 2,202 steps, ~3.3 GPU-hours) repairs the 1B using three orders of magnitude fewer tokens than the failed phase. On all 269 corpus rows, valid emission rises from 0.100 to 0.959 (600M: 0.926). On 238 unseen prompts, the repaired 1B passes 0.536 vs. the 600M's 0.428 ($p = 0.004$). Embedding-drift checks show the repair did not move the trigger token's tied embedding (97.7% of the bf16 table remains bit-identical), meaning changes live in the surrounding network. Both models over-trigger, rarely answering negative prompts without a call (0.09 for 600M, 0.17 for repaired 1B). Factorial analyses confirm all repair configurations install the format, though suppression benefits from a diverse corpus remain a hypothesis due to seed sensitivity. This cheap diagnostic ladder costs minutes of CPU time and should gate tool-use claims on small models.",
+    "published": "2026-10-01T17:46:38Z",
+    "updated": "2026-10-01T17:46:38Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02142v1"
+  },
+  {
+    "arxiv_id": "2610.02150v1",
+    "slug": "2610.02150v1",
+    "title": "From Knowledge Access to Source Learning: Developing Source-Specific Competence",
+    "authors": [
+      "Lucheng Fu",
+      "Kejing Xia",
+      "Yiyang Wang",
+      "Yiqiao Jin",
+      "Jinjin He",
+      "Xiyuan Yang",
+      "Haoxin Liu",
+      "Ye Yu",
+      "Haibo Jin",
+      "Yijia Xiao",
+      "Wenke Lee",
+      "B. Aditya Prakash",
+      "Haohan Wang"
+    ],
+    "abstract": "Large language model (LLM) agents increasingly rely on persistent external sources to solve sequences of knowledge-intensive tasks. Existing methods improve how source content is accessed and organized, while agent-memory systems preserve reusable knowledge from prior interactions, but repeated use of the same source is still largely treated as repeated access rather than an opportunity to progressively improve understanding of that source. We study source learning: developing reusable source-specific competence over a persistent authoritative source. We represent this competence with a persistent source model that captures reusable understanding of the source, including how its knowledge is structured, interpreted, and applied. To construct and progressively refine such models, we propose SourceLearn, which combines two complementary learning mechanisms. Self-Directed Source Learning identifies what remains incompletely understood and adaptively revisits the source, while Task-Guided Source Learning uses downstream experience to reveal local representational gaps and recurring needs in how source knowledge should be organized. In both cases, learning signals determine what should be reconsidered, while persistent updates are reconstructed from the authoritative source. Across five benchmarks and three LLM backends, SourceLearn achieves the best performance in 13 of 15 settings, with gains of up to 22.6 points over Hybrid RAG and substantial overall improvements over static source representations and experience-based memory baselines.",
+    "published": "2026-10-01T17:50:16Z",
+    "updated": "2026-10-01T17:50:16Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02150v1"
+  },
+  {
+    "arxiv_id": "2610.02163v1",
+    "slug": "2610.02163v1",
+    "title": "AutoCompact: Learning When to Compact Context in Long-Horizon Coding Agents",
+    "authors": [
+      "Xuan Zhang",
+      "Longtao Zheng",
+      "Cunxiao Du",
+      "Bo An",
+      "Xin Dong"
+    ],
+    "abstract": "Coding agents solve repository-level software engineering tasks through long trajectories of code inspection, search, editing, and testing. As a task progresses, earlier exploration becomes stale, so managing context is more than avoiding overflow: an agent must decide when to compact, what working state to preserve, and how to continue from it. We introduce AutoCompact, which trains a coding agent to make these decisions as part of its policy. To collect training data, we run the base agent on coding tasks and use a judge to review its compaction decisions, summaries, and actions after compaction. Flawed outputs are replaced with corrected ones before being executed in the environment, so each trajectory continues from the corrected decisions. We use these trajectories for supervised fine-tuning, then jointly optimize coding and compaction through reinforcement learning with task-success rewards. Experiments on SWE-bench Verified and SWE-PolyBench Verified show that AutoCompact improves pass rates over the base model by an absolute 9.2\\% and 5.0\\%, respectively. The improvements hold across all evaluated inference budgets, with a 256K context window that never overflows and with a 16K window whose overflow triggers fallback compaction.",
+    "published": "2026-10-01T17:54:34Z",
+    "updated": "2026-10-01T17:54:34Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02163v1"
+  },
+  {
+    "arxiv_id": "2610.02173v1",
+    "slug": "2610.02173v1",
+    "title": "Every Ablation Is a Dose: Counterweights and the Semblance of Self-Repair",
+    "authors": [
+      "Areeb Ahmad",
+      "Pratinav Seth",
+      "Vinay Kumar Sankarapu"
+    ],
+    "abstract": "Ablate a component of a language model, and other components often appear to adjust and compensate. This phenomenon, termed self-repair, has been observed repeatedly, but its mechanism remains unclear. The most systematic study to date concluded that self-repair is noisy and unlikely to have a single explanation. We argue that it has one: a gain already present before any ablation. Any intervention on a causally important component can be viewed as a point on a coordinate axis $λ$, the signed strength of a counterfactual contrast. Hence, conventional ablation methods are uncalibrated points on this axis. We show that the causal repair response for a fine-grained unit $r$ is governed by an affine law, $E_r(λ)=\\mathrm{own}_r+γ_rλ$. The slope $γ_r$ is a fixed coefficient that consistently influences the model, with or without ablation, and its sign determines whether the unit counteracts or reinforces the removed signal. On a factual-verdict task across four models from distinct families (Gemma, Qwen, LLaMA, and Mistral), we identify components including MLP neurons, OV neurons, and singular directions that follow this affine law, 68 of 81 downstream directions in all. Moreover, we can anticipate the magnitude of $γ_r$ from the fixed weights. On the IOI circuit of GPT-2 Small, seven of the ten heads the intervention can reach follow the law, and all seven are counterweights. From this perspective, what may appear as self-repair is a counterweight performing its usual operation when the contrastive signal emerges at the core.",
+    "published": "2026-10-01T17:57:04Z",
+    "updated": "2026-10-01T17:57:04Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02173v1"
+  },
+  {
+    "arxiv_id": "2610.02193v1",
+    "slug": "2610.02193v1",
+    "title": "Hierarchical Continuous Diffusion Language Models",
+    "authors": [
+      "Hui Ren",
+      "Zihan Li",
+      "Chang Liu",
+      "Huidong Liu",
+      "Alexander Schwing"
+    ],
+    "abstract": "Discrete diffusion language models offer a compelling alternative to autoregressive generation for tasks demanding bidirectional reasoning and global constraint satisfaction. Yet they share a structural bottleneck: when decoding in parallel, each token is sampled independently from its marginal, severing the statistical dependencies among the tokens decoded together. Continuous diffusion language models avoid this by denoising a shared continuous state, but their denoiser sees only that state, so nothing ties it to a valid token configuration until it is finally decoded. To address this, we propose Hierarchical Continuous Diffusion Language Models (HC-DLM), which couple discrete token generation with a continuous latent trajectory in a single, principled denoising process, whose training objective is derived from a variational bound on the token likelihood. In contrast to recent methods that attach continuous context to a self-contained discrete chain, HC-DLM makes the latent the only persistent generative state: tokens are read out from it at every step and feed back as a scaffold for the next latent update. On structured reasoning (Sudoku), mathematical planning (Countdown) and language modeling (LM1B), HC-DLM improves over discrete and continuous diffusion baselines at matched model size, in puzzle accuracy on Sudoku and Countdown and in generative perplexity on LM1B. Project page: https://hc-dlm.github.io/.",
+    "published": "2026-10-01T17:59:39Z",
+    "updated": "2026-10-01T17:59:39Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02193v1"
+  },
+  {
+    "arxiv_id": "2610.02201v1",
+    "slug": "2610.02201v1",
+    "title": "SILSA: Sliding-Window Slice Latents for Topology-Preserving High-Resolution 3D Generation",
+    "authors": [
+      "Tianjiao Yu",
+      "Xinzhuo Li",
+      "Yifan Shen",
+      "Ying Shen",
+      "Kiet A. Nguyen",
+      "Adheesh Sunil Juvekar",
+      "Ismini Lourentzou"
+    ],
+    "abstract": "High-resolution 3D generation increasingly relies on voxel latents and multi-stage pipelines that first predict active structure and then synthesize local geometry. While effective, this design fragments continuous surfaces into many local tokens, inflates generation cost, and often weakens topological consistency for thin or highly connected shapes. We introduce SILSA, a topology-aware 3D generation framework that represents shapes with compact sliding-window slice latents. Instead of generating expensive voxel tokens, SILSA uses a fixed set of overlapping slices along the three canonical axes, where each token summarizes a local depth window to preserve cross-sectional continuity and support single-stage rectified-flow generation. A Slice VAE encodes oriented surface samples into multi-axis slice latents and reconstructs them with a sparse volumetric decoder, while a Volumetric Anchor Lattice coordinates directional slice streams through a shared 3D workspace. To preserve structural correctness, we introduce slice-level topology supervision that matches persistence diagrams and aligns Betti transitions across neighboring slices. Experiments show that SILSA improves structural fidelity while substantially reducing generation cost. SILSA improves PSNR by $8.7\\%$, coverage by $5.96$ absolute points, and Betti error by $9.2\\%$ over the strongest baseline, while using $70.0\\%$ fewer tokens than the next-most compact baseline and over $98\\%$ fewer tokens than sparse or hierarchical tokenizers, effectively reducing training memory by $40.4\\%$ and inference time by $58.5\\%$. Qualitative results further show improved preservation of thin structures, repeated components, and long-range connectivity.",
+    "published": "2026-10-01T17:59:46Z",
+    "updated": "2026-10-01T17:59:46Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02201v1"
+  },
+  {
+    "arxiv_id": "2610.02202v1",
+    "slug": "2610.02202v1",
+    "title": "ScholarCatalyst: A Benchmark for Retrieving Papers That Inspire New Research",
+    "authors": [
+      "Sohyeon Kim",
+      "Yoonho Lee",
+      "Bo Liu",
+      "Dayoon Ko",
+      "Rulin Shao",
+      "Seungone Kim",
+      "Graham Neubig",
+      "Pang Wei Koh",
+      "Aakanksha Chowdhery",
+      "Akari Asai",
+      "Omar Khattab",
+      "Yejin Choi",
+      "Gunhee Kim",
+      "Chelsea Finn"
+    ],
+    "abstract": "What makes great scientists great? Even as AI systems start to make progress on open problems, scientists remain far ahead of them at sensing which prior idea, buried in an ever-growing archive of research, a new problem needs. To study this skill, we draw on researchers who know firsthand which earlier work advanced their completed projects, with papers serving as pointers to the ideas within. Using our automated pipeline that makes author annotation scalable, we build ScholarCatalyst by having 184 lead authors of 207 recent computer science papers label which candidates did or could have advanced their project, each with a detailed rationale. We introduce a retrieval task with author-provided judgments: given an initial research question, retrieve these papers from only the literature available when the project began. Agentic search does no better than embedding retrieval (0.42 vs. 0.48 Recall@20) despite calling that same retriever as a tool. Even an agent built on Claude Fable 5.1, which may have seen the completed papers during training, reaches only 0.51 R@20. These results highlight the need for new training recipes that equip models with expert intuition for searching broad corpora. We envision ScholarCatalyst as a step toward scientific agents that can take a half-formed idea and point to the prior research it needs.",
+    "published": "2026-10-01T17:59:47Z",
+    "updated": "2026-10-01T17:59:47Z",
+    "primary_category": "cs.IR",
+    "query_category": "cs.IR",
+    "pdf_url": "https://arxiv.org/pdf/2610.02202v1"
+  },
+  {
+    "arxiv_id": "2610.02203v1",
+    "slug": "2610.02203v1",
+    "title": "Embedding Prediction Helps Image Generation",
+    "authors": [
+      "Sihan Xu",
+      "Ji Xie",
+      "Zilin Wang",
+      "Hui Shen",
+      "Stella X. Yu"
+    ],
+    "abstract": "In diffusion transformers, a class label or a text prompt is embedded once, and the same condition is reused at every denoising step. We ask whether predicted embeddings can serve as this condition instead. Next-Embedding Predictive Autoregression (NEPA) trains a Transformer to predict the next continuous embedding in a sequence. In generation, the clean image follows the noisy image, so its embeddings are the next embeddings after the condition and the noisy image. We train a NEPA model to predict them all at once with Multi-Embedding Prediction, and in Embedding Conditioned Generation, a DiT generator is conditioned on these predictions, recomputed at every denoising step, so the conditioning signal adapts to the current noisy state. Experiments on class-conditional ImageNet $256\\times256$ study the condition of the generator, the design of Multi-Embedding Prediction, and the scaling of both models. The NEPA model adds a second network to every sampling step; with it, and combined with REPA, our final model, NEPA-DiT-XL, reaches an FID of 1.32 using about a third of the training compute of REPA.",
+    "published": "2026-10-01T17:59:49Z",
+    "updated": "2026-10-01T17:59:49Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02203v1"
+  },
+  {
+    "arxiv_id": "2610.02205v1",
+    "slug": "2610.02205v1",
+    "title": "ROWBench: Do Video Models Render What the Program Specifies?",
+    "authors": [
+      "Zheng-Hui Huang",
+      "Guixu Lin",
+      "Yu-Ju Tsai",
+      "Jian-Kai Zhu",
+      "Fengbo Lan",
+      "Yu-Lun Liu",
+      "Yung-Yu Chuang",
+      "Kaipeng Zhang",
+      "Zhixiang Wang"
+    ],
+    "abstract": "Programmable world models separate executable dynamics from visual generation, offering a promising foundation for next-generation game engines. However, their visual adherence to explicit rules and interactions remains insufficiently evaluated. Existing benchmarks assess visual quality, controllability, and instruction or physical adherence, but rarely test fidelity to fine-grained, program-specified world events. We introduce PROWBench, comprising 170 programmatically constructed episodes and 600 proxy videos covering diverse scenes and interactions. PROWBench logs entity states and timestamped events, including those outside the camera's field of view, as replayable world records, from which it renders synchronized views and proxy representations. This enables generated videos to be checked against the observable consequences of program execution. An extensible framework constructs scenes, controls behaviors, and can render each camera view in different representations, such as coarse 3D, and bounding boxes. The benchmark covers first- and third-person perspectives, with synchronized multi-view observations available for a subset of episodes. Grounded in these records, PROWBench evaluates entity control, long-horizon memory, and, with two VLM-based metrics, Logic-Render Alignment and Interaction Success Rate, adherence to the prescribed timeline and the visual realization of timestamped engine-recorded events.",
+    "published": "2026-10-01T17:59:53Z",
+    "updated": "2026-10-01T17:59:53Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02205v1"
+  },
+  {
+    "arxiv_id": "2610.02206v1",
+    "slug": "2610.02206v1",
+    "title": "KaliBench: A Fine-Grained Benchmark for Cybersecurity Tool Use on Kali Linux with Runtime-Free Verifiable Rewards",
+    "authors": [
+      "Pengfei Li",
+      "Naufal Suryanto",
+      "Sicheng Zhang",
+      "Muzammal Naseer"
+    ],
+    "abstract": "LLMs are increasingly applied to cybersecurity workflows, where they are expected to translate analysts' intent into tool invocations. However, existing evaluations focus on knowledge-based assessments or end-to-end agentic tasks, and do not directly measure LLMs' ability to generate executable commands for real-world cybersecurity tools. This gap is critical because cybersecurity operations rely on strict command-line interfaces (CLIs), where minor syntax errors, incorrect flag--value bindings, or argument misordering can invalidate execution. We introduce KaliBench, a fine-grained benchmark and dataset for natural-language--to--CLI translation on Kali Linux, comprising 8,504 query--command pairs spanning 1,642 tools across 23 capability dimensions and 5 security phases. KaliBench is constructed via a manuscript-grounded pipeline with deterministic canonicalization and alias-aware evaluation, enabling precise and reproducible assessment of tool selection and argument construction. To ensure both semantic correctness and practical executability, we develop a multi-stage verification pipeline that combines LLM-based validation, sandboxed terminal execution, and human-in-the-loop refinement. Building on these fine-grained, deterministic signals, KaliBench further enables runtime-free verifiable rewards for training. Across three evaluation modes and 24 configurations of general-purpose and security-focused open-weight models, no open-weight model exceeds 42% exact-command accuracy in the unrestricted setting, highlighting the difficulty of accurate CLI-based cybersecurity tool use without explicit tool hints. We further show that supervised fine-tuning and reinforcement learning with verifiable rewards derived from KaliBench significantly improve an 8B model and achieve performance comparable to a 685B MoE model.",
+    "published": "2026-10-01T17:59:55Z",
+    "updated": "2026-10-01T17:59:55Z",
+    "primary_category": "cs.CL",
+    "query_category": "cs.CL",
+    "pdf_url": "https://arxiv.org/pdf/2610.02206v1"
+  },
+  {
+    "arxiv_id": "2610.02207v1",
+    "slug": "2610.02207v1",
+    "title": "One Basis to Animate Them All: Gaussian Blendshape Distillation for Real-Time Avatars",
+    "authors": [
+      "Ramazan Fazylov",
+      "Stamatis Lefkimmiatis",
+      "Ivan Laptev"
+    ],
+    "abstract": "3D Gaussian avatars support fast rendering, however, their real-time animation is often challenged by the costly neural inference. We address this bottleneck and show that the animation of pretrained avatar models can be closely approximated by a linear combination of identity-independent blendshapes. Building on this finding, we introduce GALA (Gaussian Animation via Linear Approximation), a distillation method that replaces per-frame heavy neural decoding with a shallow coefficient predictor and a linear blend. To improve fidelity and reduce memory requirements, we propose to construct the basis using block-local PCA under a rendering-aware metric and a memory budget. Our method learns a shallow MLP network to predict blendshape coefficients and applies to various animation architectures without retraining original models. We validate GALA by accelerating the inference of three distinct avatar models for 3D animation of facial expressions and full-bodies with clothing dynamics. Across these models, our distillation generalizes to held-out identities and reduces CPU animation cost by up to three orders of magnitude while preserving most of the rendering quality. Excellent results of our method confirm the shared linear structure of learned avatar representations and enable highly efficient and accurate animation at frame rates reaching up to 60fps on mobile devices. Project page: https://ramazan793.github.io/gala/",
+    "published": "2026-10-01T17:59:58Z",
+    "updated": "2026-10-01T17:59:58Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02207v1"
+  },
+  {
+    "arxiv_id": "2610.02208v1",
+    "slug": "2610.02208v1",
+    "title": "Sphere Encoder 2",
+    "authors": [
+      "Kaiyu Yue",
+      "Sean McLeish",
+      "Ruchit Rawal",
+      "Brian Bartoldson",
+      "Menglin Jia",
+      "Tom Goldstein"
+    ],
+    "abstract": "Sphere Encoder is an autoencoder that generates images by decoding random points from a high-dimensional latent sphere. We identify two limitations of the original formulation that reduce its generation quality. First, random points concentrate near the equator relative to the pole on an encoded latent, but the training rotation never reaches this region, leaving a gap that limits one-step generation. Second, training for generation with pixel-wise reconstruction loss encourages the decoder to average over plausible images, producing blurry images that lack high-frequency details. We present Sphere Encoder 2 to address both limitations, substantially improving image generation quality while maintaining the speed and simplicity of a autoencoder. Models are released at \\href{https://github.com/kaiyuyue/sphere2}{github.com/kaiyuyue/sphere2}.",
+    "published": "2026-10-01T17:59:58Z",
+    "updated": "2026-10-01T17:59:58Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02208v1"
+  },
+  {
+    "arxiv_id": "2610.02210v1",
+    "slug": "2610.02210v1",
+    "title": "Moore, Escher, Penrose: A Conformal Golden Braid",
+    "authors": [
+      "Sophia Feldman",
+      "Assaf Shocher"
+    ],
+    "abstract": "I don't think I have ever done anything as peculiar in my life. Among other things, it shows a young man looking with interest at a print on the wall of an exhibition that features himself. How can this be? Perhaps I am not far removed from Einstein's curved universe.'' So wrote M.C. Escher about his 1956 lithograph Print Gallery. Nearly half a century later, a mathematical analysis related its geometry to an untwisted source image through a conformal power map $z \\mapsto z^α$, $α\\in \\mathbb{C}$. Building on this construction, we use a frozen text-to-image diffusion model to generate new self-referential scenes. Prompting alone does not enforce the recursion, while a post-hoc transformation can leave structures poorly connected. Applying the transformation during sampling is also insufficient: the denoiser may \"repair\" the intended distortion or drift out of the prescribed geometry. We construct a generalized inverse $T^\\dagger$ of the non-invertible image transformation $T$, adapted to its recursive constraint. In the idealized formulation, the Penrose identity $TT^\\dagger T = T$ makes $TT^\\dagger$ an idempotent projection onto geometrically admissible images. Yet denoising only the transformed image remains an out-of-distribution task, even with projection. We therefore braid denoising steps with $T$ and $T^\\dagger$: source-space steps develop the untwisted scene, while transformed-space steps refine its appearance and connections in the final geometry. We generate Print Gallery-like compositions and explore further transformations. Rather than distorting a finished image, we let the scene and its distortion develop together.",
+    "published": "2026-10-01T17:59:59Z",
+    "updated": "2026-10-01T17:59:59Z",
+    "primary_category": "cs.CV",
+    "query_category": "cs.CV",
+    "pdf_url": "https://arxiv.org/pdf/2610.02210v1"
+  },
+  {
+    "arxiv_id": "cs/9301115v1",
+    "slug": "cs_9301115v1",
+    "title": "Context-free multilanguages",
+    "authors": [
+      "Donald E. Knuth"
+    ],
+    "abstract": "This article is a sketch of ideas that were once intended to appear in the author's famous series, \"The Art of Computer Programming\". He generalizes the notion of a context-free language from a set to a multiset of words over an alphabet. The idea is to keep track of the number of ways to parse a string. For example, \"fruit flies like a banana\" can famously be parsed in two ways; analogous examples in the setting of programming languages may yet be important in the future. The treatment is informal but essentially rigorous.",
+    "published": "1991-12-01T00:00:00Z",
+    "updated": "1991-12-01T00:00:00Z",
+    "primary_category": "cs.DS",
+    "query_category": "cs.DS",
+    "pdf_url": "https://arxiv.org/pdf/cs/9301115v1"
+  },
+  {
+    "arxiv_id": "cs/9301116v1",
+    "slug": "cs_9301116v1",
+    "title": "The problem of compatible representatives",
+    "authors": [
+      "Donald E. Knuth",
+      "Arvind Raghunathan"
+    ],
+    "abstract": "The purpose of this note is to attach a name to a natural class of combinatorial problems and to point out that this class includes many important special cases. We also show that a simple problem of placing nonoverlapping labels on a rectangular map is NP-complete.",
+    "published": "1992-07-01T00:00:00Z",
+    "updated": "1992-07-01T00:00:00Z",
+    "primary_category": "cs.DS",
+    "query_category": "cs.DS",
+    "pdf_url": "https://arxiv.org/pdf/cs/9301116v1"
+  },
+  {
+    "arxiv_id": "cs/9608105v1",
+    "slug": "cs_9608105v1",
+    "title": "Shellsort with three increments",
+    "authors": [
+      "Svante Janson",
+      "Donald E. Knuth"
+    ],
+    "abstract": "A perturbation technique can be used to simplify and sharpen A. C. Yao's theorems about the behavior of shellsort with increments $(h,g,1)$. In particular, when $h=Θ(n^{7/15})$ and $g=Θ(h^{1/5})$, the average running time is $O(n^{23/15})$. The proof involves interesting properties of the inversions in random permutations that have been $h$-sorted and $g$-sorted.",
+    "published": "1996-08-22T00:00:00Z",
+    "updated": "1996-08-22T00:00:00Z",
+    "primary_category": "cs.DS",
+    "query_category": "cs.DS",
+    "pdf_url": "https://arxiv.org/pdf/cs/9608105v1"
+  },
+  {
+    "arxiv_id": "hep-th/9108001v1",
+    "slug": "hep-th_9108001v1",
+    "title": "Exact Black String Solutions in Three Dimensions",
+    "authors": [
+      "James H. Horne",
+      "Gary T. Horowitz"
+    ],
+    "abstract": "A family of exact conformal field theories is constructed which describe charged black strings in three dimensions. Unlike previous charged black hole or extended black hole solutions in string theory, the low energy spacetime metric has a regular inner horizon (in addition to the event horizon) and a timelike singularity. As the charge to mass ratio approaches unity, the event horizon remains but the singularity disappears.",
+    "published": "1991-08-14T22:25:19Z",
+    "updated": "1991-08-14T22:25:19Z",
+    "primary_category": "hep-th",
+    "query_category": "hep-th",
+    "pdf_url": "https://arxiv.org/pdf/hep-th/9108001v1"
+  },
+  {
+    "arxiv_id": "hep-th/9108002v1",
+    "slug": "hep-th_9108002v1",
+    "title": "Hamiltonian construction of W-gravity actions",
+    "authors": [
+      "A. Mikovic"
+    ],
+    "abstract": "We show that all W-gravity actions can be easilly constructed and understood from the point of view of the Hamiltonian formalism for the constrained systems. This formalism also gives a method of constructing gauge invariant actions for arbitrary conformally extended algebras.",
+    "published": "1991-08-15T16:35:28Z",
+    "updated": "1991-08-15T16:35:28Z",
+    "primary_category": "hep-th",
+    "query_category": "hep-th",
+    "pdf_url": "https://arxiv.org/pdf/hep-th/9108002v1"
+  },
+  {
+    "arxiv_id": "hep-th/9108003v1",
+    "slug": "hep-th_9108003v1",
+    "title": "Supersymmetric Gelfand-Dickey Algebra",
+    "authors": [
+      "Katri Huitu",
+      "Dennis Nemeschansky"
+    ],
+    "abstract": "We study the classical version of supersymmetric $W$-algebras. Using the second Gelfand-Dickey Hamiltonian structure we work out in detail $W_2$ and $W_3$-algebras.",
+    "published": "1991-08-15T17:12:38Z",
+    "updated": "1991-08-15T17:12:38Z",
+    "primary_category": "hep-th",
+    "query_category": "hep-th",
+    "pdf_url": "https://arxiv.org/pdf/hep-th/9108003v1"
+  },
+  {
+    "arxiv_id": "hep-th/9108028v1",
+    "slug": "hep-th_9108028v1",
+    "title": "Applied Conformal Field Theory",
+    "authors": [
+      "Paul Ginsparg"
+    ],
+    "abstract": "These lectures consisted of an elementary introduction to conformal field theory, with some applications to statistical mechanical systems, and fewer to string theory. Contents: 1. Conformal theories in d dimensions 2. Conformal theories in 2 dimensions 3. The central charge and the Virasoro algebra 4. Kac determinant and unitarity 5. Identication of m = 3 with the critical Ising model 6. Free bosons and fermions 7. Free fermions on a torus 8. Free bosons on a torus 9. Affine Kac-Moody algebras and coset constructions 10. Advanced applications",
+    "published": "1988-11-11T15:39:49Z",
+    "updated": "1988-11-11T15:39:49Z",
+    "primary_category": "hep-th",
+    "query_category": "hep-th",
+    "pdf_url": "https://arxiv.org/pdf/hep-th/9108028v1"
+  },
+  {
+    "arxiv_id": "physics/9403001v1",
+    "slug": "physics_9403001v1",
+    "title": "Desperately Seeking Superstrings",
+    "authors": [
+      "Paul Ginsparg",
+      "Sheldon Glashow"
+    ],
+    "abstract": "We provide a detailed analysis of the problems and prospects of superstring theory c. 1986, anticipating much of the progress of the decades to follow.",
+    "published": "1986-04-25T15:39:49Z",
+    "updated": "1986-04-25T15:39:49Z",
+    "primary_category": "hep-th",
+    "query_category": "hep-th",
+    "pdf_url": "https://arxiv.org/pdf/physics/9403001v1"
+  },
+  {
+    "arxiv_id": "quant-ph/9607014v2",
+    "slug": "quant-ph_9607014v2",
+    "title": "A Quantum Algorithm for Finding the Minimum",
+    "authors": [
+      "Christoph Durr",
+      "Peter Hoyer"
+    ],
+    "abstract": "We give a quantum algorithm to find the index y in a table T of size N such that in time O(c sqrt N), T[y] is minimum with probability at least 1-1/2^c.",
+    "published": "1996-07-18T19:12:42Z",
+    "updated": "1999-01-07T16:50:45Z",
+    "primary_category": "cs.DS",
+    "query_category": "cs.DS",
+    "pdf_url": "https://arxiv.org/pdf/quant-ph/9607014v2"
+  }
+]
