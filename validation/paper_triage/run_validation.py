@@ -38,6 +38,8 @@ META_PATH = os.path.join(CORPUS, "metadata.json")
 GOLDEN_PATH = os.path.join(HERE, "golden.jsonl")
 OUT_DIR = os.path.join(HERE, "results")
 
+from cached_source import CachedDocumentSource  # noqa: E402
+
 from toolkit.adapters import (  # noqa: E402
     Bm25sIndex,
     FastEmbedEmbedder,
@@ -56,6 +58,10 @@ from toolkit.pipelines import IngestConfig, KnowledgeBase  # noqa: E402
 
 FINDINGS: list[dict] = []
 _REPORTED: set[str] = set()
+
+# Set from --no-parse-cache. The uncached run is the real extraction evidence;
+# the cache only makes repeated downstream analysis affordable.
+USE_PARSE_CACHE = True
 
 
 def finding(unit: str, severity: str, text: str) -> None:
@@ -100,12 +106,16 @@ def build_kb(vector_dir: str) -> KnowledgeBase:
     """
     from toolkit.adapters import InMemoryVectorStore
 
+    source: object = PdfPlumberSource()
+    if USE_PARSE_CACHE:
+        source = CachedDocumentSource(source, os.path.join(OUT_DIR, "parse_cache"))
+
     return KnowledgeBase(
         embedder=FastEmbedEmbedder(),
         vector_store=InMemoryVectorStore(),
         lexical_index=Bm25sIndex(),
         llm=None,  # extractive answers; zero cost, fully deterministic
-        sources=[PdfPlumberSource()],
+        sources=[source],
         chunk_config=ChunkConfig(max_tokens=512),
     )
 
@@ -156,6 +166,25 @@ def step_ingest(kb: KnowledgeBase) -> dict:
             f"{failed}/{attempted} ({rate:.0%}) of real PDFs failed to ingest; "
             "pre-registered threshold was 10%",
         )
+    replayed = [o for o in outcomes if o.status == "replayed"]
+    if replayed and chunk_count == 0:
+        finding(
+            "pipelines+durable_steps",
+            "critical",
+            f"ingest reported {len(replayed)} documents 'replayed' and 0 failures, "
+            f"yet the index is EMPTY (kb.count()=0). Checkpoint replay restores a "
+            f"step's return value but not its side effects, and KnowledgeBase keeps "
+            f"chunks in a process-local dict, so resuming in a new process yields a "
+            f"silently empty KnowledgeBase that reports success",
+        )
+    elif replayed:
+        finding(
+            "pipelines+durable_steps",
+            "major",
+            f"{len(replayed)} documents were replayed rather than indexed; "
+            f"index holds {chunk_count} chunks",
+        )
+
     unnamed = [o for o in failures if not o.path or not str(o.error).strip()]
     if unnamed:
         finding(
@@ -197,67 +226,90 @@ def step_provenance(kb: KnowledgeBase, sample: int = 20) -> dict:
     checked = verified = out_of_bounds = text_mismatch = no_bbox = 0
     examples: list[dict] = []
 
+    # A chunk may carry SEVERAL provenance regions, possibly across pages. The
+    # honest check unions every region and compares the whole chunk against all
+    # of them: testing the chunk's full text against only its first bbox would
+    # fail any multi-region chunk and report a defect that is not there.
     for ch in picked:
-        provs = list(ch.provenances or [])
-        if not provs or provs[0].bbox is None:
+        provs = [p for p in (ch.provenances or []) if p.bbox is not None]
+        if not provs:
             no_bbox += 1
             continue
-        prov = provs[0]
         path = chunk_path(ch)
         if not path or not os.path.exists(path):
             continue
         checked += 1
         try:
+            inside: list[str] = []
+            bad_page: str | None = None
+            bad_box: str | None = None
             with pdfplumber.open(path) as pdf:
-                if prov.page < 1 or prov.page > len(pdf.pages):
-                    out_of_bounds += 1
-                    examples.append(
-                        {
-                            "chunk": ch.chunk_id,
-                            "problem": f"page {prov.page} outside 1..{len(pdf.pages)}",
-                        }
+                by_page: dict[int, list] = {}
+                for p in provs:
+                    by_page.setdefault(p.page, []).append(p.bbox)
+                for pno, boxes in sorted(by_page.items()):
+                    if pno < 1 or pno > len(pdf.pages):
+                        bad_page = f"page {pno} outside 1..{len(pdf.pages)}"
+                        break
+                    page = pdf.pages[pno - 1]
+                    x0 = min(b.x0 for b in boxes)
+                    y0 = min(b.y0 for b in boxes)
+                    x1 = max(b.x1 for b in boxes)
+                    y1 = max(b.y1 for b in boxes)
+                    if (
+                        x0 < -1
+                        or y0 < -1
+                        or x1 > page.width + 1
+                        or y1 > page.height + 1
+                        or x1 <= x0
+                        or y1 <= y0
+                    ):
+                        bad_box = (
+                            f"union ({x0:.0f},{y0:.0f},{x1:.0f},{y1:.0f}) vs page "
+                            f"{page.width:.0f}x{page.height:.0f} on p{pno}"
+                        )
+                        break
+                    crop = page.crop(
+                        (max(x0, 0), max(y0, 0), min(x1, page.width), min(y1, page.height)),
+                        strict=False,
                     )
-                    continue
-                page = pdf.pages[prov.page - 1]
-                bb = prov.bbox
-                if (
-                    bb.x0 < -1
-                    or bb.y0 < -1
-                    or bb.x1 > page.width + 1
-                    or bb.y1 > page.height + 1
-                    or bb.x1 <= bb.x0
-                    or bb.y1 <= bb.y0
-                ):
-                    out_of_bounds += 1
-                    examples.append(
-                        {
-                            "chunk": ch.chunk_id,
-                            "problem": (
-                                f"bbox ({bb.x0:.0f},{bb.y0:.0f},{bb.x1:.0f},{bb.y1:.0f}) "
-                                f"vs page {page.width:.0f}x{page.height:.0f}"
-                            ),
-                        }
-                    )
-                    continue
-                crop = page.crop((bb.x0, bb.y0, bb.x1, bb.y1), strict=False)
-                inside = (crop.extract_text() or "").split()
-                wanted = ch.text.split()
-                probe = [w for w in wanted if len(w) > 4][:12]
-                if not probe:
-                    verified += 1
-                    continue
-                hits = sum(1 for w in probe if w in inside)
-                if hits >= max(1, len(probe) // 3):
-                    verified += 1
-                else:
-                    text_mismatch += 1
-                    examples.append(
-                        {
-                            "chunk": ch.chunk_id,
-                            "problem": f"only {hits}/{len(probe)} probe words inside bbox",
-                            "page": prov.page,
-                        }
-                    )
+                    inside.extend((crop.extract_text() or "").split())
+
+            if bad_page or bad_box:
+                out_of_bounds += 1
+                examples.append(
+                    {"chunk": ch.chunk_id, "problem": bad_page or bad_box,
+                     "regions": len(provs)}
+                )
+                continue
+
+            # Compare on normalised words: PDF extraction reflows whitespace, and
+            # the toolkit dehyphenates, so exact token identity is too strict.
+            def norm(words):
+                return {
+                    "".join(c for c in w.lower() if c.isalnum())
+                    for w in words
+                }
+
+            have = norm(inside)
+            probe = [w for w in norm(ch.text.split()) if len(w) > 4][:15]
+            if not probe:
+                verified += 1
+                continue
+            hits = sum(1 for w in probe if w in have)
+            if hits >= max(1, len(probe) // 2):
+                verified += 1
+            else:
+                text_mismatch += 1
+                examples.append(
+                    {
+                        "chunk": ch.chunk_id,
+                        "problem": f"only {hits}/{len(probe)} probe words inside the "
+                                   f"union of its {len(provs)} region(s)",
+                        "pages": sorted({p.page for p in provs}),
+                        "chunk_text_head": " ".join(ch.text.split())[:110],
+                    }
+                )
         except Exception as exc:  # noqa: BLE001
             examples.append({"chunk": ch.chunk_id, "problem": f"{type(exc).__name__}: {exc}"})
 
@@ -313,8 +365,14 @@ def step_tokens(kb: KnowledgeBase, budget: int = 512) -> dict:
     over = 0
     worst = 0.0
     ratios = []
+    specials = 0
     for ch in chunks:
-        real = len(enc.encode(ch.text))
+        # Real papers contain the literal string "<|endoftext|>", which tiktoken
+        # refuses to encode by default. Found the hard way: it crashed this
+        # harness mid-run. Treat it as ordinary text and count it.
+        if "<|" in ch.text:
+            specials += 1
+        real = len(enc.encode(ch.text, disallowed_special=()))
         est = estimate_tokens(ch.text)
         if est:
             ratios.append(real / est)
@@ -331,6 +389,16 @@ def step_tokens(kb: KnowledgeBase, budget: int = 512) -> dict:
     print(f"  real/est  median  : {mid:.2f}")
     print(f"  real/est  p95     : {p95:.2f}")
 
+    if specials:
+        finding(
+            "corpus-reality",
+            "major",
+            f"{specials} chunk(s) contain a tokenizer special-token literal such as "
+            "'<|endoftext|>'; tiktoken refuses to encode these by default and raised "
+            "ValueError mid-run. Any component that counts tokens with a real "
+            "tokenizer must pass disallowed_special=()",
+        )
+    print(f"  chunks w/ '<|'    : {specials}")
     if over:
         finding(
             "chunking",
@@ -523,12 +591,27 @@ def step_dagfanout() -> dict:
             f"{len(result.failed)}/{len(nodes)} documents failed when ingested "
             "concurrently through dag; KnowledgeBase may not be thread-safe",
         )
+
+    # Chunk counts alone are not evidence: compare document identity. A count
+    # gap with the same doc set means chunks were lost; a smaller doc set means
+    # whole documents were lost.
+    docs = {c.doc_id for c in all_chunks(kb)}
+    print(f"  distinct doc_ids: {len(docs)} (expected {len(nodes)})")
+    if len(docs) != len(nodes):
+        finding(
+            "pipelines",
+            "critical",
+            f"concurrent ingest through dag indexed {len(docs)} distinct documents "
+            f"out of {len(nodes)}, while reporting {len(result.completed)} nodes "
+            "completed and 0 failed - documents were lost silently",
+        )
     return {
         "nodes": len(nodes),
         "completed": len(result.completed),
         "failed": len(result.failed),
         "skipped": len(result.skipped),
         "chunks": kb.count(),
+        "distinct_docs": len(docs),
         "seconds": seconds,
         "errors": {n: str(result.outcomes[n].error) for n in result.failed[:20]},
     }
@@ -542,7 +625,14 @@ def main() -> int:
         default="all",
         choices=["all", "ingest", "provenance", "tokens", "eval", "ablation", "dagfanout"],
     )
+    ap.add_argument(
+        "--no-parse-cache",
+        action="store_true",
+        help="re-parse every PDF with pdfplumber (the honest extraction measurement)",
+    )
     args = ap.parse_args()
+    global USE_PARSE_CACHE
+    USE_PARSE_CACHE = not args.no_parse_cache
     os.makedirs(OUT_DIR, exist_ok=True)
 
     report: dict = {"step": args.step, "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
@@ -555,23 +645,28 @@ def main() -> int:
             report["ingest"] = step_ingest(kb)
         return kb
 
-    try:
-        if args.step in ("all", "ingest"):
-            need_kb()
-        if args.step in ("all", "provenance"):
-            report["provenance"] = step_provenance(need_kb())
-        if args.step in ("all", "tokens"):
-            report["tokens"] = step_tokens(need_kb())
-        if args.step in ("all", "eval"):
-            report["eval"] = step_eval(need_kb())
-        if args.step in ("all", "ablation"):
-            report["ablation"] = step_ablation(need_kb())
-        if args.step in ("all", "dagfanout"):
-            report["dagfanout"] = step_dagfanout()
-    except Exception:
-        report["crashed"] = traceback.format_exc()
-        print("\n!!! the validation run itself crashed:\n")
-        traceback.print_exc()
+    # Each step is isolated: a crash in one must not cost the evidence from the
+    # others. Learned the hard way - a tiktoken ValueError in `tokens` aborted
+    # `eval` and `ablation` on the first full run.
+    plan = [
+        ("ingest", lambda: {"note": "ran as part of kb construction"} if need_kb() else {}),
+        ("provenance", lambda: step_provenance(need_kb())),
+        ("tokens", lambda: step_tokens(need_kb())),
+        ("eval", lambda: step_eval(need_kb())),
+        ("ablation", lambda: step_ablation(need_kb())),
+        ("dagfanout", step_dagfanout),
+    ]
+    for name, fn in plan:
+        if args.step not in ("all", name):
+            continue
+        try:
+            got = fn()
+            if name != "ingest":
+                report[name] = got
+        except Exception:
+            report[name] = {"crashed": traceback.format_exc()}
+            print(f"\n!!! step '{name}' crashed; continuing with the rest\n")
+            traceback.print_exc()
 
     report["findings"] = FINDINGS
     out = os.path.join(OUT_DIR, f"report_{args.step}.json")

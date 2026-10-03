@@ -1,0 +1,157 @@
+{
+  "step": "all",
+  "started": "2026-10-03T11:32:54",
+  "ingest": {
+    "attempted": 49,
+    "documents": 49,
+    "status_counts": {
+      "ingested": 49
+    },
+    "failed": 0,
+    "failure_rate": 0.0,
+    "chunks_indexed": 2626,
+    "kb_count": 2626,
+    "embedding_calls": 2626,
+    "seconds": 183.78498530387878,
+    "failures": []
+  },
+  "provenance": {
+    "checked": 20,
+    "verified": 18,
+    "out_of_bounds": 0,
+    "text_mismatch": 2,
+    "no_bbox": 0,
+    "examples": [
+      {
+        "chunk": "doc:36b0c63e33e8a823#11",
+        "problem": "only 0/3 probe words inside the union of its 1 region(s)",
+        "pages": [
+          4
+        ],
+        "chunk_text_head": "V 3.2 GAUSSIAN BLENDSHAPE DISTILLATION"
+      },
+      {
+        "chunk": "doc:9becff37d8c7d875#79",
+        "problem": "only 4/15 probe words inside the union of its 1 region(s)",
+        "pages": [
+          27
+        ],
+        "chunk_text_head": "X > C PromptTemplates Positional_args: [\"/dev/ttyACM0\"] Query: “Scan http://test.siteusingwafw00f with Optiona"
+      }
+    ]
+  },
+  "tokens": {
+    "chunks": 2626,
+    "over_budget": 1166,
+    "over_fraction": 0.44402132520944404,
+    "worst_overshoot": 2.646484375,
+    "ratio_median": 1.1497175141242937,
+    "ratio_p95": 1.7431693989071038
+  },
+  "eval": {
+    "metrics": {
+      "hit_rate@1": 0.25,
+      "precision@1": 0.25,
+      "ndcg@1": 0.25,
+      "hit_rate@5": 0.375,
+      "precision@5": 0.10000000000000002,
+      "ndcg@5": 0.3198319540860571,
+      "hit_rate@10": 0.4166666666666667,
+      "precision@10": 0.05555555555555556,
+      "ndcg@10": 0.334673920215558,
+      "mrr": 0.3090277777777778,
+      "map": 0.303125,
+      "cited_relevant": 0.4166666666666667,
+      "false_refusal": 0.0,
+      "refusal_accuracy": 0.0,
+      "hallucinated_citation": 0.0,
+      "overall_correct": 0.38461538461538464,
+      "mean_seconds": 0.09453247693958335,
+      "cases": 26.0,
+      "unanswerable_cases": 2.0
+    },
+    "cases": 26,
+    "zero_relevant": [
+      "q01-supernova-heating",
+      "q04-preference-states",
+      "q05-patent-length",
+      "q08-keyword-false-positive",
+      "q09-coding-agent-tasks",
+      "q10-diffusion-lm-strengths",
+      "q11-3d-generation-latents",
+      "q14-supersingular-crypto",
+      "q15-prime-geodesic",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost",
+      "q18-voice-conversion-correspondence",
+      "q19-outlier-metric",
+      "q20-posterior-density",
+      "q25-unanswerable-gallium",
+      "q26-unanswerable-k8s"
+    ]
+  },
+  "ablation": {
+    "recall_at_10": {
+      "lexical": 0.9545454545454546,
+      "dense": 0.9090909090909091,
+      "rrf": 0.9545454545454546
+    },
+    "no_truth_cases": [
+      "q01-supernova-heating",
+      "q04-preference-states",
+      "q05-patent-length",
+      "q08-keyword-false-positive",
+      "q09-coding-agent-tasks",
+      "q10-diffusion-lm-strengths",
+      "q11-3d-generation-latents",
+      "q14-supersingular-crypto",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost",
+      "q18-voice-conversion-correspondence",
+      "q19-outlier-metric",
+      "q20-posterior-density"
+    ]
+  },
+  "dagfanout": {
+    "nodes": 49,
+    "completed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "chunks": 2626,
+    "distinct_docs": 49,
+    "seconds": 201.75285649299622,
+    "errors": {}
+  },
+  "findings": [
+    {
+      "unit": "pipelines",
+      "severity": "minor",
+      "finding": "no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict"
+    },
+    {
+      "unit": "chunking/doc_layout",
+      "severity": "critical",
+      "finding": "2 chunk bbox(es) do not contain their own text"
+    },
+    {
+      "unit": "corpus-reality",
+      "severity": "major",
+      "finding": "28 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()"
+    },
+    {
+      "unit": "chunking",
+      "severity": "major",
+      "finding": "1166/2626 chunks (44%) exceed the 512-token budget against a real tokenizer, worst 2.65x; the heuristic counter is documented but this is its real cost"
+    },
+    {
+      "unit": "evaluation",
+      "severity": "minor",
+      "finding": "EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly"
+    },
+    {
+      "unit": "chunking/golden-set",
+      "severity": "major",
+      "finding": "13 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed"
+    }
+  ]
+}

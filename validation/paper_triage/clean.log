@@ -1,0 +1,90 @@
+
+=== INGEST: 49 real PDFs ===
+  seconds        : 183.8
+  documents      : 49
+  chunks indexed : 2626 (kb.count=2626)
+  embedding calls: 2626
+  failures       : 0
+  status counts  : {'ingested': 49}
+
+=== PROVENANCE: re-opening PDFs to verify 20 chunk bboxes ===
+  [MINOR   ] pipelines: no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict
+  checked        : 20
+  verified       : 18
+  out of bounds  : 0
+  text mismatch  : 2
+  chunks w/o bbox: 0
+    - {'chunk': 'doc:36b0c63e33e8a823#11', 'problem': 'only 0/3 probe words inside the union of its 1 region(s)', 'pages': [4], 'chunk_text_head': 'V 3.2 GAUSSIAN BLENDSHAPE DISTILLATION'}
+    - {'chunk': 'doc:9becff37d8c7d875#79', 'problem': 'only 4/15 probe words inside the union of its 1 region(s)', 'pages': [27], 'chunk_text_head': 'X > C PromptTemplates Positional_args: ["/dev/ttyACM0"] Query: “Scan http://test.siteusingwafw00f with Optiona'}
+  [CRITICAL] chunking/doc_layout: 2 chunk bbox(es) do not contain their own text
+
+=== TOKENS: heuristic vs real tokenizer (budget 512) ===
+  chunks            : 2626
+  over budget       : 1166 (44.4%)
+  worst overshoot   : 2.65x budget
+  real/est  median  : 1.15
+  real/est  p95     : 1.74
+  [MAJOR   ] corpus-reality: 28 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()
+  chunks w/ '<|'    : 28
+  [MAJOR   ] chunking: 1166/2626 chunks (44%) exceed the 512-token budget against a real tokenizer, worst 2.65x; the heuristic counter is documented but this is its real cost
+
+=== EVAL: pre-registered golden set ===
+  cases: 26
+  cases                        26.0000
+  cited_relevant               0.4167
+  false_refusal                0.0000
+  hallucinated_citation        0.0000
+  hit_rate@1                   0.2500
+  hit_rate@10                  0.4167
+  hit_rate@5                   0.3750
+  map                          0.3031
+  mean_seconds                 0.0945
+  mrr                          0.3090
+  ndcg@1                       0.2500
+  ndcg@10                      0.3347
+  ndcg@5                       0.3198
+  overall_correct              0.3846
+  precision@1                  0.2500
+  precision@10                 0.0556
+  precision@5                  0.1000
+  refusal_accuracy             0.0000
+  unanswerable_cases           2.0000
+  cases retrieving nothing relevant: 16/26
+    - q01-supernova-heating: What effects on core-collapse supernova hydrodynamics are investigated
+    - q04-preference-states: What do personalization encoders compress interaction histories into?
+    - q05-patent-length: How long are the documents that patent prior art search must process?
+    - q08-keyword-false-positive: How can keyword-matching benchmarks mislead about tool use in small mo
+    - q09-coding-agent-tasks: What kind of software engineering tasks do coding agents solve?
+    - q10-diffusion-lm-strengths: Which tasks are discrete diffusion language models suited to?
+    - q11-3d-generation-latents: What does high-resolution 3D generation increasingly rely on?
+    - q14-supersingular-crypto: Why do supersingular abelian surfaces matter for cryptography?
+    - q15-prime-geodesic: What is improved in the prime geodesic theorem?
+    - q16-avsd-dataset: What is the AVSD-Scenes dataset?
+
+=== ABLATION: lexical-only vs dense-only vs RRF ===
+  note: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  [MINOR   ] evaluation: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  recall@10 lexical  0.9545  (n=11)
+  recall@10 dense    0.9091  (n=11)
+  recall@10 rrf      0.9545  (n=11)
+  cases whose expected snippet is in NO chunk: 13
+    - q01-supernova-heating
+    - q04-preference-states
+    - q05-patent-length
+    - q08-keyword-false-positive
+    - q09-coding-agent-tasks
+    - q10-diffusion-lm-strengths
+    - q11-3d-generation-latents
+    - q14-supersingular-crypto
+    - q16-avsd-dataset
+    - q17-transformer-depth-cost
+  [MAJOR   ] chunking/golden-set: 13 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed
+
+=== DAG FAN-OUT: ingest 1 node per PDF ===
+  seconds   : 201.8
+  status    : RunStatus.COMPLETED
+  completed : 49  failed: 0  skipped: 0
+  chunks    : 2626
+  distinct doc_ids: 49 (expected 49)
+
+6 finding(s) -> C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\results\report_all.json

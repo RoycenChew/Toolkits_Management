@@ -1,0 +1,132 @@
+
+=== INGEST: 49 real PDFs ===
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+  seconds        : 1561.6
+  documents      : 49
+  chunks indexed : 2626 (kb.count=2626)
+  embedding calls: 2626
+  failures       : 0
+  status counts  : {'ingested': 49}
+
+=== PROVENANCE: re-opening PDFs to verify 20 chunk bboxes ===
+  [MINOR   ] pipelines: no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict
+  checked        : 20
+  verified       : 10
+  out of bounds  : 0
+  text mismatch  : 10
+  chunks w/o bbox: 0
+    - {'chunk': 'doc:13d73a398174b666#20', 'problem': 'only 3/12 probe words inside bbox', 'page': 6}
+    - {'chunk': 'doc:d3a6d7d847040907#67', 'problem': 'only 0/12 probe words inside bbox', 'page': 15}
+    - {'chunk': 'doc:9568e30fc9d64d35#31', 'problem': 'only 1/12 probe words inside bbox', 'page': 11}
+    - {'chunk': 'doc:36b0c63e33e8a823#11', 'problem': 'only 0/3 probe words inside bbox', 'page': 4}
+    - {'chunk': 'doc:c9672fb687070475#169', 'problem': 'only 3/12 probe words inside bbox', 'page': 58}
+    - {'chunk': 'doc:9becff37d8c7d875#79', 'problem': 'only 2/12 probe words inside bbox', 'page': 27}
+    - {'chunk': 'doc:81e848ad52b38bce#19', 'problem': 'only 3/12 probe words inside bbox', 'page': 12}
+    - {'chunk': 'doc:f37125537c93dd6d#0', 'problem': 'only 2/12 probe words inside bbox', 'page': 1}
+  [CRITICAL] chunking/doc_layout: 10 chunk bbox(es) do not contain their own text
+
+=== TOKENS: heuristic vs real tokenizer (budget 512) ===
+
+!!! the validation run itself crashed:
+
+Traceback (most recent call last):
+  File "C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\run_validation.py", line 600, in main
+    report["tokens"] = step_tokens(need_kb())
+                       ~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\run_validation.py", line 346, in step_tokens
+    real = len(enc.encode(ch.text))
+               ~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Chew MIng Yau\AppData\Local\Programs\Python\Python313\Lib\site-packages\tiktoken\core.py", line 121, in encode
+    raise_disallowed_special_token(match.group())
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\Chew MIng Yau\AppData\Local\Programs\Python\Python313\Lib\site-packages\tiktoken\core.py", line 439, in raise_disallowed_special_token
+    raise ValueError(
+    ...<6 lines>...
+    )
+ValueError: Encountered text corresponding to disallowed special token '<|endoftext|>'.
+If you want this text to be encoded as a special token, pass it to `allowed_special`, e.g. `allowed_special={'<|endoftext|>', ...}`.
+If you want this text to be encoded as normal text, disable the check for this token by passing `disallowed_special=(enc.special_tokens_set - {'<|endoftext|>'})`.
+To disable this check for all special tokens, pass `disallowed_special=()`.
+
+
+2 finding(s) -> C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\results\report_all.json
+t be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+  seconds   : 1630.7
+  status    : RunStatus.COMPLETED
+  completed : 49  failed: 0  skipped: 0
+  chunks    : 2345
+
+3 finding(s) -> C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\results\report_all.json

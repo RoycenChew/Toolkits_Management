@@ -1,0 +1,19 @@
+{
+  "step": "ingest",
+  "started": "2026-10-03T10:22:59",
+  "ingest": {
+    "attempted": 49,
+    "documents": 49,
+    "status_counts": {
+      "ingested": 49
+    },
+    "failed": 0,
+    "failure_rate": 0.0,
+    "chunks_indexed": 2626,
+    "kb_count": 2626,
+    "embedding_calls": 2626,
+    "seconds": 2262.887268781662,
+    "failures": []
+  },
+  "findings": []
+}

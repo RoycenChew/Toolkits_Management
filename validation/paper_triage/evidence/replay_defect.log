@@ -1,0 +1,67 @@
+
+=== INGEST: 49 real PDFs ===
+  seconds        : 0.0
+  documents      : 49
+  chunks indexed : 0 (kb.count=0)
+  embedding calls: 0
+  failures       : 0
+  status counts  : {'replayed': 49}
+
+=== PROVENANCE: re-opening PDFs to verify 20 chunk bboxes ===
+  [MINOR   ] pipelines: no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict
+
+=== TOKENS: heuristic vs real tokenizer (budget 512) ===
+
+=== EVAL: pre-registered golden set ===
+  cases: 26
+  cases                        26.0000
+  cited_relevant               0.0000
+  false_refusal                1.0000
+  hallucinated_citation        0.0000
+  hit_rate@1                   0.0000
+  hit_rate@10                  0.0000
+  hit_rate@5                   0.0000
+  map                          0.0000
+  mean_seconds                 0.0001
+  mrr                          0.0000
+  ndcg@1                       0.0000
+  ndcg@10                      0.0000
+  ndcg@5                       0.0000
+  overall_correct              0.0769
+  precision@1                  0.0000
+  precision@10                 0.0000
+  precision@5                  0.0000
+  refusal_accuracy             1.0000
+  unanswerable_cases           2.0000
+  cases retrieving nothing relevant: 26/26
+    - q01-supernova-heating: What effects on core-collapse supernova hydrodynamics are investigated
+    - q02-blazar-flux: What flux state was the blazar 3C 454.3 in during July 2008?
+    - q03-lbg-parameters: Which physical parameters of Lyman break galaxies are estimated from b
+    - q04-preference-states: What do personalization encoders compress interaction histories into?
+    - q05-patent-length: How long are the documents that patent prior art search must process?
+    - q06-rag-tradeoff: What tradeoff must multi-hop RAG question answering systems balance?
+    - q07-recsys-gpus: How large is the hardware fleet for the largest recommendation trainin
+    - q08-keyword-false-positive: How can keyword-matching benchmarks mislead about tool use in small mo
+    - q09-coding-agent-tasks: What kind of software engineering tasks do coding agents solve?
+    - q10-diffusion-lm-strengths: Which tasks are discrete diffusion language models suited to?
+
+=== ABLATION: lexical-only vs dense-only vs RRF ===
+  note: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  [MINOR   ] evaluation: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  recall@10 lexical  0.0000  (n=0)
+  recall@10 dense    0.0000  (n=0)
+  recall@10 rrf      0.0000  (n=0)
+  cases whose expected snippet is in NO chunk: 24
+    - q01-supernova-heating
+    - q02-blazar-flux
+    - q03-lbg-parameters
+    - q04-preference-states
+    - q05-patent-length
+    - q06-rag-tradeoff
+    - q07-recsys-gpus
+    - q08-keyword-false-positive
+    - q09-coding-agent-tasks
+    - q10-diffusion-lm-strengths
+  [MAJOR   ] chunking/golden-set: 24 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed
+
+=== DAG FAN-OUT: ingest 1 node per PDF ===
