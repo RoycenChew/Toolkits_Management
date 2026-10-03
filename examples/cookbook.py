@@ -776,6 +776,163 @@ def recipe_cli_corpus_query() -> None:
     cli_main(["ask", index, "what voltage does the relay switch?"])
 
 
+def unit_provider() -> None:
+    """provider - find a key, an endpoint and a model, or say what to set."""
+    from toolkit.provider import ApiStyle, SetupError, available, diagnose, resolve
+
+    # One key is enough: the shortcut table supplies endpoint, model and label.
+    for env in (
+        {"ANTHROPIC_API_KEY": "sk-ant-demo-000000000000"},
+        {"DEEPSEEK_API_KEY": "sk-demo-111111111111"},
+        {"GROQ_API_KEY": "gsk-demo-222222222222"},
+    ):
+        p = resolve(env_file=None, environ=env)
+        out("%-20s -> %s\n" % (list(env)[0], p.describe()))
+
+    # An explicit endpoint wins, and needs a model because nothing can guess one.
+    custom = resolve(env_file=None, environ={
+        "TOOLKIT_API_KEY": "sk-demo-333333333333",
+        "TOOLKIT_BASE_URL": "https://my-gateway.internal/v1",
+        "TOOLKIT_MODEL": "house-model-v2",
+    })
+    out("\nexplicit             -> %s\n" % custom.describe())
+    out("style is an enum     -> %r\n" % custom.style)
+    assert custom.style is ApiStyle.OPENAI
+
+    # The key never appears in repr, str or describe.
+    out("\nrepr is redacted     -> %r\n" % custom)
+    assert "sk-demo-333333333333" not in repr(custom)
+
+    out("\navailable({})        -> %s\n" % available(env_file=None, environ={}))
+    try:
+        resolve(env_file=None, environ={"TOOLKIT_API_KEY": "sk-x"})
+    except SetupError as exc:
+        out("SetupError names the missing setting:\n  %s\n" % str(exc).split(".")[0])
+
+    report = diagnose({"DEEPSEEK_API_KEY": "sk-demo-444444444444"})
+    out("\ndiagnose sees names only: present=%s\n" % (report.present,))
+
+
+def unit_llm_http() -> None:
+    """llm_http - the LLM port over plain HTTP, no vendor SDK."""
+    import json as _json
+
+    from toolkit.core.errors import AdapterError, RateLimited
+    from toolkit.llm_http import HttpLLM
+    from toolkit.provider import resolve
+
+    def transport(status, payload):
+        def send(url, headers, body, timeout):
+            send.url, send.body = url, body
+            return status, _json.dumps(payload)
+        send.url = ""
+        send.body = {}
+        return send
+
+    deepseek = resolve(env_file=None, environ={"DEEPSEEK_API_KEY": "sk-demo-555555555555"})
+    claude = resolve(env_file=None, environ={"ANTHROPIC_API_KEY": "sk-ant-demo-666666666666"})
+
+    ok = transport(200, {
+        "choices": [{"message": {"content": "6 * 7 = 42"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 14, "completion_tokens": 6},
+        "model": "deepseek-chat",
+    })
+    answer = HttpLLM(deepseek, transport=ok).complete([Message(role="user", content="6*7?")])
+    out("openai style   POST %s\n" % ok.url)
+    out("  text=%r tokens in/out=%d/%d finish=%s\n"
+        % (answer.text, answer.usage.input_tokens, answer.usage.output_tokens,
+           answer.finish_reason))
+
+    # Anthropic takes the system prompt as a top-level field, not a message.
+    anth = transport(200, {
+        "content": [{"type": "text", "text": "Brief."},],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 9, "output_tokens": 2},
+    })
+    HttpLLM(claude, transport=anth).complete([
+        Message(role="system", content="Answer in one word."),
+        Message(role="user", content="status?"),
+    ])
+    out("\nanthropic style POST %s\n" % anth.url)
+    out("  system lifted out of messages -> %r\n" % anth.body.get("system"))
+    out("  roles actually sent           -> %s\n" % [m["role"] for m in anth.body["messages"]])
+
+    out("\nfailures are classified, not retried here:\n")
+    for status, payload in (
+        (401, {"error": {"message": "invalid key"}}),
+        (404, {"error": {"message": "no such model"}}),
+        (429, {"error": {"message": "slow down"}}),
+    ):
+        try:
+            HttpLLM(deepseek, transport=transport(status, payload)).complete(
+                [Message(role="user", content="x")])
+        except RateLimited as exc:
+            out("  %d RateLimited  (governor will retry): %s\n" % (status, str(exc)[:52]))
+        except AdapterError as exc:
+            out("  %d AdapterError (do not retry):       %s\n" % (status, str(exc)[:52]))
+
+    # A truncated answer returned as success is the quietest way to be wrong.
+    try:
+        HttpLLM(deepseek, transport=transport(200, {
+            "choices": [{"message": {"content": ""}, "finish_reason": "length"}]})).complete(
+            [Message(role="user", content="x")])
+    except AdapterError as exc:
+        out("\n  empty + finish_reason=length -> %s\n" % str(exc)[:70])
+
+
+def recipe_byok_generation() -> None:
+    """R9: bring your own key, with a budget, a cache and no vendor SDK.
+
+    The whole generation stack on a stdlib-only install:
+
+        provider  ->  llm_http  ->  governor  ->  cache  ->  KnowledgeBase
+
+    `provider` finds the credential, `llm_http` speaks HTTP, `governor` caps the
+    spend and retries only what is worth retrying, `cache` stops paying twice
+    for a deterministic call. Nothing here needs a third-party package, which is
+    what makes the generation half of the pipeline reachable on a bare install.
+    """
+    import json as _json
+
+    from toolkit.cache import CachedLLM, SqliteCache
+    from toolkit.governor import GovernedLLM, GovernorConfig
+    from toolkit.llm_http import HttpLLM
+    from toolkit.provider import available, resolve
+
+    # A fake endpoint, so this runs offline. Swap the transport out and the same
+    # four lines call a real provider.
+    calls = {"n": 0}
+
+    def transport(url, headers, body, timeout):
+        calls["n"] += 1
+        question = body["messages"][-1]["content"]
+        return 200, _json.dumps({
+            "choices": [{"message": {"content": "Answer to: " + question[:40]},
+                         "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 8},
+        })
+
+    out("provider configured in this environment: %s\n" % available(env_file=None, environ={}))
+    out("(using a demo key and a fake transport so this snippet stays offline)\n\n")
+
+    provider = resolve(env_file=None, environ={"DEEPSEEK_API_KEY": "sk-demo-777777777777"})
+    llm = CachedLLM(
+        GovernedLLM(
+            HttpLLM(provider, transport=transport),
+            GovernorConfig(max_total_tokens=10_000, max_cost_usd=1.0),
+        ),
+        SqliteCache(),
+    )
+    out("stack: %s\n" % provider.describe())
+
+    question = [Message(role="user", content="What limits the throughput?")]
+    first = llm.complete(question)
+    second = llm.complete(question)
+    out("\nfirst  call -> %r (cached=%s)\n" % (first.text, first.usage.cached))
+    out("second call -> %r (cached=%s)\n" % (second.text, second.usage.cached))
+    out("HTTP requests actually made: %d\n" % calls["n"])
+
+
 def recipe_measured_change() -> None:
     """R5 · Measured change
     evaluation + hybrid_ranker + pipelines. Never tune retrieval on a feeling.
@@ -833,7 +990,10 @@ SNIPPETS = {
     "recipe:reconcile_records": recipe_reconcile_records,
     "recipe:parallel_document_pipeline": recipe_parallel_document_pipeline,
     "cli": unit_cli,
+    "provider": unit_provider,
+    "llm_http": unit_llm_http,
     "recipe:cli_corpus_query": recipe_cli_corpus_query,
+    "recipe:byok_generation": recipe_byok_generation,
     "recipe:measured_change": recipe_measured_change,
 }
 

@@ -38,6 +38,107 @@ reached it yet.
 
 ---
 
+## 0.8.0 - 2026-10-03
+
+Two units extracted from PRism (same author, reused with permission) and
+reimplemented against this toolkit's contracts. Together they close the gap
+that made the generation half of the pipeline unreachable: the toolkit could
+call a model but had no idea how to find one.
+
+### Added
+
+- **`toolkit/provider`** (layer 1, standalone, imports nothing) - resolve an AI
+  provider from the environment: key, endpoint, model and API style, or a
+  `SetupError` naming exactly what to set.
+
+  One key is enough: set `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`
+  or any of thirteen shortcuts and the table supplies the endpoint, a default
+  model and a label. A key with no model is still unusable, and making the
+  caller look one up is how "I set the key and it still doesn't work" happens.
+
+  Two API *styles*, not N providers. Almost every vendor exposes an
+  OpenAI-compatible chat-completions endpoint, so DeepSeek, Gemini, Groq,
+  Mistral, Together, xAI, Qwen, Kimi, GLM, vLLM, Ollama and LM Studio cost one
+  adapter and a base URL; Anthropic's Messages API earns its own.
+
+  `.toolkit.env` is read first and overlaid by the real environment, in that
+  direction: the file is what you keep locally, the environment is what CI
+  injects, and the injected value has to win or every deploy needs the file
+  deleted first.
+
+- **`toolkit/llm_http`** (layer 2, needs_package) - the `LLM` port over plain
+  HTTP, no vendor SDK. Before this the only route to a real model was
+  `LiteLLMClient`, so generation was unreachable on the stdlib-only base
+  install. A chat completion is one POST with a JSON body; an SDK is
+  convenience, not capability.
+
+  It **classifies failures and never retries them**: `RateLimited` for 429 and
+  the 5xx set, `AdapterError` for everything else, so `governor` can decide.
+  Two components retrying the same call independently is how a rate limit
+  becomes an outage.
+
+  It also refuses to return a quietly wrong answer. An empty completion with
+  `finish_reason=length` is an error naming `max_tokens`; an Anthropic
+  `stop_reason=refusal` is an error; a `content_filter` is an error. A
+  *partial* answer is returned intact with the reason on the `Completion`,
+  because that is usable.
+
+  Anthropic takes the system prompt as a top-level field rather than a message,
+  and sending `role: "system"` inside `messages` produces a 400 whose text does
+  not point at the cause - so the lifting happens in the client, not in every
+  caller.
+
+- Recipe **R9 `byok_generation`**: `provider -> llm_http -> governor -> cache ->
+  KnowledgeBase`, the whole generation stack with no third-party package.
+
+### The security change I made to the original
+
+`Provider` overrides `__repr__` and `__str__` to redact the key, showing only
+its length and last four characters. PRism's equivalent is a plain dataclass
+whose generated `repr` prints `api_key` in full.
+
+Nothing in that project appears to print it today, but the places a provider
+object ends up - a debug log line, an unhandled traceback, a crash reporter, a
+CI job's captured output - are all places a credential must never reach. One
+`logging.debug(provider)` leaks a key into a log aggregator for its whole
+retention period, and that is not retrofittable: the key has to be rotated.
+`Diagnosis` reports variable names only, and no error message echoes a key.
+Tests assert all of it, including that `"%s" % [provider]` is safe, because
+formatting a container calls `repr` on its members.
+
+### Testability as a design feature
+
+`HttpLLM` takes an injectable `transport`, so all 43 tests for these two units
+run offline with no key. The error translation **is** the valuable part of
+`llm_http`, and error handling that can only be exercised against a live
+provider is error handling nobody tests. PRism calls `urllib` directly, which
+is why its own failure paths have no tests.
+
+### What this release got wrong
+
+- The composition test called `GovernorConfig(max_input_tokens=...)`, a field
+  that does not exist - it is `max_total_tokens`. Written from memory of an API
+  in this same repository rather than from the dataclass, which is the mistake
+  that the registry's `test_declared_deps_match_the_code` exists to catch in
+  the large and that a `TypeError` caught here in the small.
+- `_raise_for_status` formatted a message with `status and label` where `label`
+  was meant. It evaluated correctly because `status` is always truthy at that
+  point, which is the worst kind of bug: right answer, wrong reason.
+- A 503 with an empty body rendered as `"... (HTTP 503): {}"`. An empty JSON
+  object carries no information and should not be appended to an otherwise
+  clean message.
+
+### Still open
+
+Neither unit has `used_in_projects` yet. They are tested but not *used*, which
+by this repository's own `production_ready` gate means they have not earned
+anything - and the gap they close, validating the generation half against real
+input, is exactly the project that has not been run. `Usage.cost_usd` stays
+0.0 for want of a per-model price table, so `governor`'s cost ceiling only
+works if the caller supplies prices.
+
+---
+
 ## 0.7.0 - 2026-10-03
 
 ### Added

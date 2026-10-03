@@ -47,6 +47,17 @@ UNITS = {unit["id"]: unit for unit in REGISTRY["units"]}
 # primary entry point is reachable. Deliberately trivial — this file tests
 # packaging, not behaviour.
 SMOKE = {
+    "provider": "from {p}provider import ApiStyle, resolve; "
+                "p = resolve(env_file=None, environ={{'DEEPSEEK_API_KEY': 'sk-abcdefgh'}}); "
+                "assert p.style is ApiStyle.OPENAI and p.model == 'deepseek-chat'; "
+                "assert 'sk-abcdefgh' not in repr(p)",
+    "llm_http": "import json; from {p}llm_http import HttpLLM; "
+                "from {p}provider import resolve; from {p}core import Message; "
+                "t = lambda u, h, b, to: (200, json.dumps({{'choices': "
+                "[{{'message': {{'content': 'ok'}}, 'finish_reason': 'stop'}}]}})); "
+                "p = resolve(env_file=None, environ={{'DEEPSEEK_API_KEY': 'sk-x123456'}}); "
+                "assert HttpLLM(p, transport=t).complete("
+                "[Message(role='user', content='hi')]).text == 'ok'",
     "core": "from {p}core import Document, BBox; "
             "assert Document(doc_id=Document.id_from_text('x')).blocks == []; "
             "assert BBox(0, 0, 1, 1).width == 1",

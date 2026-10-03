@@ -29,7 +29,7 @@ for c in answer.citations:
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
-| **Components** | 18 units |
+| **Components** | 20 units |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
 | **Base dependencies** | none |
 | **Python** | 3.10+ |
@@ -822,7 +822,7 @@ feeling.
     ├── extraction/                L2 repair loop, grounding, splitter
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
-    └── tests/                     317 tests, twelve suites
+    └── tests/                     360 tests, thirteen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

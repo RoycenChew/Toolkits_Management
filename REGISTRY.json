@@ -123,6 +123,7 @@
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_cache",
       "recipes": [
+        "byok_generation",
         "governed_cached_rag"
       ]
     },
@@ -265,6 +266,7 @@
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_core",
       "recipes": [
+        "byok_generation",
         "cited_document_qa",
         "cli_corpus_query",
         "governed_cached_rag",
@@ -518,6 +520,7 @@
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_governor",
       "recipes": [
+        "byok_generation",
         "governed_cached_rag"
       ]
     },
@@ -630,6 +633,43 @@
       ]
     },
     {
+      "id": "llm_http",
+      "path": "toolkit/llm_http/",
+      "layer": 2,
+      "kind": "component",
+      "capability": "the LLM port over plain HTTP for OpenAI-compatible and Anthropic-style APIs, with no vendor SDK",
+      "domains": [
+        "01",
+        "10"
+      ],
+      "toolkit_deps": [
+        "core",
+        "provider"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_package",
+      "api": [
+        "HttpLLM",
+        "Transport",
+        "urllib_transport"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "no streaming, tool calling or structured output; ports.LLM leaves them out deliberately",
+        "classifies failures but never retries: wrap in GovernedLLM",
+        "no retry_after, because the transport returns a status and a body but not headers",
+        "Usage.cost_usd stays 0.0; there is no per-model price table",
+        "synchronous: one call, one thread. Use concurrency.bounded_map to fan out",
+        "a provider that is only nearly OpenAI-compatible may still need its own branch"
+      ],
+      "last_reviewed": "2026-10-03",
+      "example": "examples/cookbook.py::unit_llm_http",
+      "recipes": [
+        "byok_generation"
+      ]
+    },
+    {
       "id": "pipelines",
       "path": "toolkit/pipelines",
       "layer": 3,
@@ -705,6 +745,43 @@
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_ports",
       "recipes": []
+    },
+    {
+      "id": "provider",
+      "path": "toolkit/provider/",
+      "layer": 1,
+      "kind": "functions",
+      "capability": "resolve an AI provider from the environment: key, endpoint, model and API style, or an error naming what to set",
+      "domains": [
+        "01",
+        "10"
+      ],
+      "toolkit_deps": [],
+      "external_deps": [],
+      "copy_tier": "standalone",
+      "api": [
+        "resolve",
+        "diagnose",
+        "available",
+        "load_settings",
+        "Provider",
+        "ApiStyle",
+        "SetupError"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "two API styles only: openai and anthropic",
+        "shortcut default models go stale as vendors rename them; override with TOOLKIT_MODEL",
+        "environment variables and a .toolkit.env file only; no Vault, Secrets Manager or keychain",
+        "checks that settings are present and coherent, never that the key works - that needs a network call",
+        "no per-model cost table, so Usage.cost_usd is not populated from here"
+      ],
+      "last_reviewed": "2026-10-03",
+      "example": "examples/cookbook.py::unit_provider",
+      "recipes": [
+        "byok_generation"
+      ]
     }
   ],
   "recipes": {
@@ -783,6 +860,16 @@
         "cli",
         "core",
         "pipelines"
+      ]
+    },
+    "byok_generation": {
+      "entry": "examples/cookbook.py::recipe_byok_generation",
+      "units": [
+        "cache",
+        "core",
+        "governor",
+        "llm_http",
+        "provider"
       ]
     }
   }
