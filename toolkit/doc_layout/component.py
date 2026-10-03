@@ -40,6 +40,35 @@ from .models import (
     TextSpan,
 )
 
+WORD_GAP_RATIO = 0.15
+"""Smallest inter-span gap, as a fraction of font size, that means "a space".
+
+Two stages have to agree on this number, and they used not to. A PDF extractor
+decides where one word ends and the next begins; this component then rejoins
+the spans it is handed and must put the spaces back. If the rejoining threshold
+is *looser* than the splitting one it silently undoes the split and glues the
+line back together:
+
+    Supersingularabeliansurfacesareessentialinisogeny-based
+
+This was 0.25 while `adapters.PdfPlumberSource` took pdfplumber's default
+absolute tolerance, and between them every one of 49 real arXiv PDFs lost word
+spaces: a median 22.9% of characters, worst case 84.2%. LaTeX's Computer Modern
+sets inter-word space below 0.25 em at body sizes, so the gap was there and was
+discarded. Glued text is unmatchable by any lexical index, because the tokens
+do not exist.
+
+0.15 em sits below every real space observed in that corpus and above the
+intra-word kerning. Measured across 8 documents spanning 1986-2026: word counts
+rise from 12,627 to ~21,980 and then plateau below 0.15, while the share of one-
+and two-character tokens stays flat at 20.4% - so the extra splits are real
+spaces being recovered, not words being broken up. `PdfPlumberSource` imports
+this constant so the two stages cannot drift apart again.
+
+A ratio rather than an absolute point value because the threshold has to scale
+with type size: 1.35pt at 9pt body text, 3pt at a 20pt heading.
+"""
+
 _BULLET = re.compile(r"^\s*(?:[-â€¢â€£â—¦âƒâˆ™*]|\(?\d{1,2}[.)]|[a-z][.)])\s+")
 _CAPTION = re.compile(
     r"^\s*(?:fig(?:ure)?|table|tbl|exhibit|chart|listing|appendix)\s*\.?\s*"
@@ -146,7 +175,7 @@ class _Line:
                 gap = span.bbox.x0 - prev.bbox.x1
                 # Insert a space only when the visual gap is wide enough to be
                 # one. Extractors split mid-word constantly.
-                needs_space = gap > 0.25 * max(prev.font_size, 1.0)
+                needs_space = gap > WORD_GAP_RATIO * max(prev.font_size, 1.0)
                 if needs_space and not out.endswith(" ") and not piece.startswith(" "):
                     out += " "
             out += piece

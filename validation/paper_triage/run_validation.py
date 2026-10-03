@@ -46,6 +46,7 @@ from toolkit.adapters import (  # noqa: E402
     PdfPlumberSource,
 )
 from toolkit.chunking import ChunkConfig, estimate_tokens  # noqa: E402
+from toolkit.doc_layout import WORD_GAP_RATIO  # noqa: E402
 from toolkit.evaluation import EvalConfig, EvalDataset, EvalRunner  # noqa: E402
 from toolkit.hybrid_ranker import (  # noqa: E402
     FusionConfig,
@@ -273,7 +274,15 @@ def step_provenance(kb: KnowledgeBase, sample: int = 20) -> dict:
                         (max(x0, 0), max(y0, 0), min(x1, page.width), min(y1, page.height)),
                         strict=False,
                     )
-                    inside.extend((crop.extract_text() or "").split())
+                    # Extract with the SAME word-gap ratio the toolkit used. With
+                    # pdfplumber's default the crop comes back glued, so the
+                    # chunk's correctly-spaced words would never match it - which
+                    # made provenance look worse after the gluing fix, not better.
+                    inside.extend(
+                        (
+                            crop.extract_text(x_tolerance_ratio=WORD_GAP_RATIO) or ""
+                        ).split()
+                    )
 
             if bad_page or bad_box:
                 out_of_bounds += 1
@@ -292,7 +301,23 @@ def step_provenance(kb: KnowledgeBase, sample: int = 20) -> dict:
                 }
 
             have = norm(inside)
-            probe = [w for w in norm(ch.text.split()) if len(w) > 4][:15]
+            # `ChunkConfig.include_heading_path=True` prepends the heading trail
+            # ("Paper Title > Appendix > A Benchmark Data") to the chunk text.
+            # Those words come from a different region, often a different page,
+            # so probing them tests nothing about this chunk's own bboxes.
+            # Drop them, and drop the heading separator, before building a probe.
+            body = ch.text
+            heading_path = (ch.metadata or {}).get("heading_path") or []
+            for heading in heading_path:
+                body = body.replace(str(heading), " ")
+            heading_words = norm(
+                " ".join(str(h) for h in heading_path).split()
+            )
+            probe = [
+                w
+                for w in norm(body.split())
+                if len(w) > 4 and w not in heading_words
+            ][:15]
             if not probe:
                 verified += 1
                 continue

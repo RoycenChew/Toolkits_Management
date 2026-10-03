@@ -24,6 +24,7 @@ import pickle
 from typing import Any
 
 from toolkit.core import Document, ScreeningLimits
+from toolkit.doc_layout import WORD_GAP_RATIO
 
 
 class CachedDocumentSource:
@@ -44,8 +45,18 @@ class CachedDocumentSource:
         return bool(self.inner.supports(path))
 
     def _key(self, path: str) -> str:
+        """Key on the file *and* on the parser's behaviour.
+
+        Keying on path+size+mtime alone was wrong: fixing the word-gap ratio
+        changed what the parser produces, and every cached entry silently
+        remained the old glued text. Any setting that alters the output has to
+        be part of the key.
+        """
         stat = os.stat(path)
-        raw = f"{os.path.abspath(path)}|{stat.st_size}|{int(stat.st_mtime)}"
+        raw = (
+            f"{os.path.abspath(path)}|{stat.st_size}|{int(stat.st_mtime)}"
+            f"|gap={WORD_GAP_RATIO}|{type(self.inner).__name__}"
+        )
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
         return os.path.join(self.cache_dir, digest + ".pickle")
 

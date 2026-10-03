@@ -1,40 +1,40 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-build/
-dist/
-.eggs/
 
-# Virtual environments
-.venv/
-venv/
-env/
+# Editors / OS
+# Python
+# Runtime artefacts the toolkit creates
+# Secrets — never commit these
 # Tool caches
+# Virtual environments
+*.db
+*.db-shm
+*.db-wal
+*.egg-info/
+*.key
+*.pem
+*.py[cod]
+.DS_Store
+.coverage
+.eggs/
+.env
+.env.*
+.idea/
+.lancedb/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.coverage
-htmlcov/
-# Runtime artefacts the toolkit creates
-*.db
-*.db-wal
-*.db-shm
-.lancedb/
-baseline.json
-report.json
-# Secrets — never commit these
-.env
-.env.*
-*.pem
-*.key
-credentials.json
-# Editors / OS
+.venv/
 .vscode/
-.idea/
-.DS_Store
 Thumbs.db
+__pycache__/
+baseline.json
+build/
+credentials.json
 desktop.ini
+dist/
+env/
+htmlcov/
+report.json
+validation/paper_triage/*.log
 validation/paper_triage/corpus/pdf/
 validation/paper_triage/results/
-validation/paper_triage/*.log
+venv/

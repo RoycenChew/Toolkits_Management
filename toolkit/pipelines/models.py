@@ -40,7 +40,18 @@ class DocumentOutcome:
     chunks: int = 0
     pages: int = 0
     status: str = "ingested"
-    """'ingested', 'replayed' (already done in an earlier run), or 'failed'."""
+    """How this document ended up in the index.
+
+    - ``'ingested'``  — parsed, chunked, embedded and indexed by this call.
+    - ``'replayed'``  — a checkpoint said it was already done *and* the document
+      was verified to still be present in this KnowledgeBase, so the work was
+      skipped.
+    - ``'reingested'`` — a checkpoint said it was already done but the document
+      was **not** present (the usual cause: the checkpoint database outlived the
+      process that wrote it, and chunks are process-local). The work was redone
+      rather than trusting a record whose side effects are gone.
+    - ``'failed'``    — see ``error``.
+    """
     error: str = ""
 
 

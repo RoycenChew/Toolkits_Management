@@ -268,3 +268,114 @@ python validation/paper_triage/run_validation.py --step all --no-parse-cache
 parsed documents are reused from `results/parse_cache` via
 `CachedDocumentSource`, which implements the `DocumentSource` port rather than
 bypassing it — the port doing the job it exists for.
+
+---
+
+# Post-fix re-measurement (2026-10-03, after F1 and F2 were fixed)
+
+The corpus was re-parsed from scratch (the parse cache was invalidated, since
+its key did not include the parser's own settings - a mistake worth recording).
+
+| Metric | Before fix | After fix |
+|---|---|---|
+| Documents ingested | 49/49, 0 failures | 49/49, 0 failures |
+| Chunks indexed | 2626 | **2784** |
+| Chunk bboxes verified | 18/20 | **20/20, 0 mismatches** |
+| `hit_rate@10` | 0.4167 | **0.6667** |
+| `ndcg@10` | 0.3347 | **0.5628** |
+| `map` | 0.3031 | **0.5205** |
+| `mrr` | 0.3090 | **0.5399** |
+| `cited_relevant` | 0.4167 | **0.6667** |
+| `overall_correct` | 0.3846 | **0.6154** |
+| Golden snippets in no chunk | 13/24 | **7/24** |
+| Ablation cases measurable | n=11 | **n=17** |
+| Chunks over a 512-token budget | 44.4% | **35.1%** |
+| real/estimated token ratio, median | 1.15 | **1.04** |
+
+`hit_rate@10` improved **60% relative** and `ndcg@10` **68%**, from an extraction
+fix. Nothing about retrieval, ranking or chunking was touched. The token counter
+also became more accurate as a side effect - it had been counting glued runs as
+single words.
+
+**Provenance is now 20/20 with zero mismatches.** Both earlier figures were
+depressed by faults in my own checker, not the toolkit: it compared whole chunks
+against only the first bbox, it probed heading-path words that live in a
+different region, and - the one that mattered - it re-extracted the cropped
+region with pdfplumber's *default* tolerance, so the crop came back glued while
+the chunk text was correct. That is why provenance appeared to get *worse* after
+the fix. Four methodology corrections in total; each is recorded because the
+method is as much the deliverable as the numbers.
+
+**`hybrid_ranker` now fires its pre-registered failure condition.** recall@10:
+lexical 0.971, dense 0.853, RRF 0.941 (n=17). RRF no longer ties the better
+retriever, it sits slightly below it. The caveat from before still applies and
+still matters more than the number: ground truth is *a chunk containing the
+expected snippet verbatim*, which scores BM25 on precisely the task it is built
+for and gives dense retrieval no credit for paraphrase. **Verdict stays NOT
+PROVEN rather than becoming a defect** - this metric cannot settle the question,
+and a fair test needs semantic relevance judgements.
+
+---
+
+## New findings from the re-measurement
+
+### F10 - MAJOR - `adapters` + `doc_layout`: rotated marginal text is interleaved into body text
+
+Every arXiv PDF carries a rotated identifier stamp down its left edge. On
+`2610.01924v1` page 1 that is **41 non-upright characters at x=24**:
+
+    arXiv:2610.01924v1  [math.NT]  1 Oct 2026
+
+`extract_words` returns them as reversed fragments positioned in the left
+margin - `'6202'`, `'tcO'`, `'1'`, `']TN.htam['`, `'1v42910.0162:viXra'` - and
+`doc_layout`, which has no notion of text orientation, interleaves them into
+body lines. The result corrupts words and displaces content:
+
+| Extracted | Actual |
+|---|---|
+| `an tc abelian surface over Fp` | `an abelian surface over F_p` |
+| `negligible failure O probability` | `negligible failure probability` |
+| `documents routinely extc ceeding` | `documents routinely exceeding` |
+| `super- 1 singular Jacobians` | `supersingular Jacobians` |
+
+Worse, a whole line of that abstract is missing from its reading order:
+
+    extracted: ...essential in isogeny-based given abelian surface is supersingular.
+    actual:    ...essential in isogeny-based cryptography. Despite this, we have no
+               efficient algorithm to verify if a given abelian surface is supersingular.
+
+This accounts for `q14` and `q05` among the 7 remaining unmatched snippets, and
+it affects **every arXiv paper**, plus any document with rotated stamps or
+margin annotations.
+
+**The fix needs a decision, so it is not applied here.** Filtering to upright
+glyphs (`page.filter(lambda o: o.get("upright", True))`) is one line and removes
+the corruption, but it silently discards legitimately rotated content - rotated
+table headers, landscape pages. Carrying orientation on `TextSpan` so
+`doc_layout` can keep rotated text as a separate flow is the better design and a
+larger change. `doc_layout`'s documented limitations do not currently mention
+orientation at all.
+
+### F11 - my golden set, not the toolkit: arXiv abstracts differ from PDF bodies
+
+Of the 7 snippets still matching no chunk, 5 are my own fault. I drew expected
+snippets from the arXiv **metadata** abstract, which is not always the text in
+the PDF:
+
+| Case | Metadata abstract | PDF body |
+|---|---|---|
+| `q16` | `...dataset for urban environments` | `...dataset for urban acoustic scenes` |
+| `q11` | `voxel latents and multi-stage pipelines` | `requiring multi-stage pipelines` |
+| `q10` | `bidirectional reasoning and global constraint satisfaction` | phrase absent from the body |
+
+A golden set keyed on verbatim snippets must be built from the text actually
+indexed, not from a parallel metadata record. This is a lesson about
+pre-registration, not a defect: pre-registering the queries was right, but the
+snippets should have been drawn from the extracted text once, then frozen.
+
+### F12 - MINOR - a cache key must include the behaviour it caches
+
+`CachedDocumentSource` keyed on path, size and mtime. After the word-gap fix
+every cached parse was stale glued text and the first re-measurement silently
+used it. The key now includes `WORD_GAP_RATIO` and the inner source's class
+name. Any cache over a parser has to version the parser.

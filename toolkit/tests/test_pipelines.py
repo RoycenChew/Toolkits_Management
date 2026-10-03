@@ -126,26 +126,68 @@ def test_one_bad_file_does_not_stop_the_corpus():
         raise AssertionError("skip_failed=False should surface the failure")
 
 
-def test_durable_ingest_replays_completed_documents():
+def test_durable_ingest_replays_within_the_same_knowledge_base():
+    """Re-ingesting into the SAME KnowledgeBase skips the completed work.
+
+    Its side effects are still there, so the checkpoint can be trusted.
+    """
+    folder = _corpus()
+    db = os.path.join(tempfile.mkdtemp(), "ingest.db")
+    config = IngestConfig(durable_db=db)
+
+    kb = KnowledgeBase()
+    first_result = kb.ingest_folder(folder, config)
+    assert all(d.status == "ingested" for d in first_result.documents)
+    before = kb.count()
+
+    second_result = kb.ingest_folder(folder, config)
+    assert all(d.status == "replayed" for d in second_result.documents), [
+        d.status for d in second_result.documents
+    ]
+    assert second_result.embedding_calls == 0
+    assert kb.count() == before
+    assert all(d.doc_id for d in second_result.documents), (
+        "a replayed document must still report which document it was"
+    )
+
+
+def test_durable_ingest_redoes_work_whose_side_effects_are_gone():
+    """A checkpoint that outlived its process must not produce an empty index.
+
+    This test previously asserted the opposite - that a fresh KnowledgeBase over
+    an existing checkpoint database reports every document 'replayed' with zero
+    embedding calls - and it passed. It never checked `count()`, so it missed
+    that the index was empty: a checkpoint records a step's return value, never
+    its side effects, and chunks are process-local. Real use surfaced it as 49
+    documents replayed, 0 failures and 0 chunks indexed, after which every
+    question was refused.
+    """
     folder = _corpus()
     db = os.path.join(tempfile.mkdtemp(), "ingest.db")
     config = IngestConfig(durable_db=db)
 
     first = KnowledgeBase()
-    first_result = first.ingest_folder(folder, config)
-    assert all(d.status == "ingested" for d in first_result.documents)
+    first.ingest_folder(folder, config)
+    expected = first.count()
+    assert expected > 0
 
-    # A fresh KnowledgeBase over the same checkpoint database: the work is
-    # recognised as already done rather than repeated.
+    # A fresh KnowledgeBase over the same checkpoint database, as a new process
+    # would have: the records say "done", the stores are empty.
     second = KnowledgeBase()
     second_result = second.ingest_folder(folder, config)
-    assert all(d.status == "replayed" for d in second_result.documents), [
+
+    assert second.count() == expected, (
+        "replay left the index holding "
+        + str(second.count())
+        + " chunks instead of "
+        + str(expected)
+        + "; statuses were "
+        + str([d.status for d in second_result.documents])
+    )
+    assert all(d.status == "reingested" for d in second_result.documents), [
         d.status for d in second_result.documents
     ]
-    assert second_result.embedding_calls == 0
-    assert all(d.doc_id for d in second_result.documents), (
-        "a replayed document must still report which document it was"
-    )
+    assert second_result.embedding_calls > 0
 
 
 def test_ingest_rejects_a_missing_folder():

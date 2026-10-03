@@ -217,19 +217,46 @@ class KnowledgeBase:
         if "outcome" in holder:
             return holder["outcome"], int(payload.get("chunks", 0)), int(payload.get("calls", 0))
 
-        # Replayed from a previous run: the work did not happen again, and the
-        # store was populated then. Report it as replayed rather than pretending
-        # to have done it.
+        # The step was replayed: the checkpoint says this document finished, so
+        # the work did not run again. A checkpoint records a step's RETURN
+        # VALUE, never its SIDE EFFECTS, so replaying is only honest while
+        # those side effects are still observable. They are not, if the
+        # checkpoint outlived the process that wrote them: `_chunks` and
+        # `_doc_paths` are process-local, and `ask` resolves every retrieval hit
+        # through `_chunks`, so a replay into a fresh KnowledgeBase would report
+        # a successful ingest over an empty index and then refuse every
+        # question.
+        #
+        # So verify before trusting the record. If the document is not actually
+        # present, re-do it and say so, rather than claiming a replay that left
+        # nothing behind. Found by real use: a 49-document corpus reported
+        # 49 replayed, 0 failed, 0 chunks indexed.
+        replayed_doc_id = str(payload.get("doc_id", ""))
+        if replayed_doc_id and replayed_doc_id in self._doc_paths:
+            return (
+                DocumentOutcome(
+                    path=path,
+                    doc_id=replayed_doc_id,
+                    chunks=int(payload.get("chunks", 0)),
+                    pages=int(payload.get("pages", 0)),
+                    status="replayed",
+                ),
+                0,
+                0,
+            )
+
+        outcome, chunks, calls = self._do_ingest(path, cfg)
         return (
             DocumentOutcome(
-                path=path,
-                doc_id=str(payload.get("doc_id", "")),
-                chunks=int(payload.get("chunks", 0)),
-                pages=int(payload.get("pages", 0)),
-                status="replayed",
+                path=outcome.path,
+                doc_id=outcome.doc_id,
+                chunks=outcome.chunks,
+                pages=outcome.pages,
+                status="reingested",
+                error=outcome.error,
             ),
-            0,
-            0,
+            chunks,
+            calls,
         )
 
     def _run_id(self, path: str) -> str:

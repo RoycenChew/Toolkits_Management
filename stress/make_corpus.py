@@ -33,9 +33,37 @@ class Page:
 
     def __init__(self) -> None:
         self.items: list[tuple[float, float, float, str, str]] = []
+        self.runs: list[tuple[float, float, float, str, list[str], float]] = []
 
     def text(self, x: float, y: float, body: str, size: float = 11, font: str = "regular") -> Page:
         self.items.append((x, y, size, font, body))
+        return self
+
+    def tight_line(
+        self,
+        x: float,
+        y: float,
+        words: list[str],
+        size: float = 9,
+        gap: float = 1.8,
+        font: str = "regular",
+    ) -> Page:
+        """Separate words by an exact gap, the way a TeX engine does.
+
+        Emitted as one `TJ` array with explicit kerning between words, so the
+        gap is set in text space and does not depend on glyph metrics: a number
+        `n` in a `TJ` array advances by `-n/1000 * size` points, hence
+        `n = -gap*1000/size`. Estimating advance widths instead leaves gaps that
+        vary per word and a fixture that only sometimes reproduces the defect.
+
+        Writing a whole line as one `Tj` - what the other generators here do -
+        relies on the font's own space glyph, ~3.06pt for Helvetica at 11pt.
+        That sits just *above* pdfplumber's default `x_tolerance=3`, so those
+        fixtures split correctly by luck. It is why nothing in this corpus
+        reproduced the word-gluing that 49 of 49 real arXiv PDFs exhibited:
+        LaTeX's Computer Modern sets spaces below 3pt at body sizes.
+        """
+        self.runs.append((x, y, size, font, list(words), gap))
         return self
 
     def column(
@@ -59,6 +87,21 @@ class Page:
                 b"BT /" + key + b" " + str(size).encode() + b" Tf "
                 + str(x).encode() + b" " + str(y).encode() + b" Td ("
                 + _escape(body) + b") Tj ET\n"
+            )
+        for x, y, size, font, words, gap in self.runs:
+            key = {"regular": b"F1", "bold": b"F2", "italic": b"F3"}[font]
+            # A number n in a TJ array advances by -n/1000 * size points, so a
+            # gap of `gap` points needs n = -gap*1000/size.
+            adjust = str(-round(gap * 1000.0 / size)).encode()
+            pieces: list[bytes] = []
+            for index, word in enumerate(words):
+                if index:
+                    pieces.append(b" " + adjust + b" ")
+                pieces.append(b"(" + _escape(word) + b")")
+            parts.append(
+                b"BT /" + key + b" " + str(size).encode() + b" Tf "
+                + str(x).encode() + b" " + str(y).encode() + b" Td ["
+                + b"".join(pieces) + b"] TJ ET\n"
             )
         return b"".join(parts)
 
@@ -284,6 +327,44 @@ def no_text_layer(path: str) -> str:
     return write_pdf(path, [Page(), Page()])
 
 
+def tex_tight_spacing(path: str) -> str:
+    """Targets: word-gap inference in `PdfPlumberSource`.
+
+    Reproduces how LaTeX positions a line - each word placed individually with
+    a gap narrower than pdfplumber's default 3pt `x_tolerance`. A parser taking
+    that default merges the whole line into one unsearchable token. Every one of
+    49 real arXiv PDFs hit this; nothing else in this corpus did, because the
+    other generators emit a whole line as one string and inherit Helvetica's
+    comfortably wide space glyph.
+    """
+    page = Page()
+    page.text(72, 760, "Supersingular Abelian Surfaces", 16, "bold")
+    page.tight_line(
+        72,
+        730,
+        ["Supersingular", "abelian", "surfaces", "are", "essential", "in"],
+        size=9,
+        gap=1.8,
+    )
+    page.tight_line(
+        72,
+        716,
+        ["isogeny-based", "cryptography", "and", "verification", "is", "hard."],
+        size=9,
+        gap=1.8,
+    )
+    page.column(
+        72,
+        690,
+        [
+            "This paragraph is written as whole lines, so it keeps the native",
+            "own space advance and survives even the old tolerance.",
+        ],
+        size=11,
+    )
+    return write_pdf(path, [page])
+
+
 def unicode_mess(path: str) -> str:
     """Targets: text normalisation. Ligatures, smart quotes, non-breaking and
     zero-width spaces, combining accents, and a soft hyphen."""
@@ -379,6 +460,7 @@ def build(directory: str | None = None) -> str:
     emphasis_not_headings(os.path.join(directory, "emphasis_not_headings.pdf"))
     table_heavy(os.path.join(directory, "table_heavy.pdf"))
     no_text_layer(os.path.join(directory, "no_text_layer.pdf"))
+    tex_tight_spacing(os.path.join(directory, "tex_tight_spacing.pdf"))
     unicode_mess(os.path.join(directory, "unicode_mess.md"))
     cjk_mixed(os.path.join(directory, "cjk_mixed.md"))
     injection(os.path.join(directory, "injection.md"))

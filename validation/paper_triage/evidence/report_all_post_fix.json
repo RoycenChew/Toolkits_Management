@@ -1,0 +1,128 @@
+{
+  "step": "all",
+  "started": "2026-10-03T12:31:09",
+  "ingest": {
+    "attempted": 49,
+    "documents": 49,
+    "status_counts": {
+      "ingested": 49
+    },
+    "failed": 0,
+    "failure_rate": 0.0,
+    "chunks_indexed": 2784,
+    "kb_count": 2784,
+    "embedding_calls": 2784,
+    "seconds": 236.36838006973267,
+    "failures": []
+  },
+  "provenance": {
+    "checked": 20,
+    "verified": 20,
+    "out_of_bounds": 0,
+    "text_mismatch": 0,
+    "no_bbox": 0,
+    "examples": []
+  },
+  "tokens": {
+    "chunks": 2784,
+    "over_budget": 978,
+    "over_fraction": 0.35129310344827586,
+    "worst_overshoot": 2.646484375,
+    "ratio_median": 1.0365853658536586,
+    "ratio_p95": 1.6181818181818182
+  },
+  "eval": {
+    "metrics": {
+      "hit_rate@1": 0.4583333333333333,
+      "precision@1": 0.4583333333333333,
+      "ndcg@1": 0.4583333333333333,
+      "hit_rate@5": 0.625,
+      "precision@5": 0.15,
+      "ndcg@5": 0.5496246333559374,
+      "hit_rate@10": 0.6666666666666666,
+      "precision@10": 0.08159722222222222,
+      "ndcg@10": 0.5627690032220094,
+      "mrr": 0.5399305555555556,
+      "map": 0.5204861111111111,
+      "cited_relevant": 0.6666666666666666,
+      "false_refusal": 0.0,
+      "refusal_accuracy": 0.0,
+      "hallucinated_citation": 0.0,
+      "overall_correct": 0.6153846153846154,
+      "mean_seconds": 0.09038505769478014,
+      "cases": 26.0,
+      "unanswerable_cases": 2.0
+    },
+    "cases": 26,
+    "zero_relevant": [
+      "q05-patent-length",
+      "q08-keyword-false-positive",
+      "q10-diffusion-lm-strengths",
+      "q11-3d-generation-latents",
+      "q14-supersingular-crypto",
+      "q15-prime-geodesic",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost",
+      "q25-unanswerable-gallium",
+      "q26-unanswerable-k8s"
+    ]
+  },
+  "ablation": {
+    "recall_at_10": {
+      "lexical": 0.9705882352941176,
+      "dense": 0.8529411764705882,
+      "rrf": 0.9411764705882353
+    },
+    "no_truth_cases": [
+      "q05-patent-length",
+      "q08-keyword-false-positive",
+      "q10-diffusion-lm-strengths",
+      "q11-3d-generation-latents",
+      "q14-supersingular-crypto",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost"
+    ]
+  },
+  "dagfanout": {
+    "nodes": 49,
+    "completed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "chunks": 2784,
+    "distinct_docs": 49,
+    "seconds": 189.46098446846008,
+    "errors": {}
+  },
+  "findings": [
+    {
+      "unit": "pipelines",
+      "severity": "minor",
+      "finding": "no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict"
+    },
+    {
+      "unit": "corpus-reality",
+      "severity": "major",
+      "finding": "29 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()"
+    },
+    {
+      "unit": "chunking",
+      "severity": "major",
+      "finding": "978/2784 chunks (35%) exceed the 512-token budget against a real tokenizer, worst 2.65x; the heuristic counter is documented but this is its real cost"
+    },
+    {
+      "unit": "evaluation",
+      "severity": "minor",
+      "finding": "EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly"
+    },
+    {
+      "unit": "chunking/golden-set",
+      "severity": "major",
+      "finding": "7 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed"
+    },
+    {
+      "unit": "hybrid_ranker",
+      "severity": "major",
+      "finding": "RRF (0.941) did not beat the better single retriever (lexical 0.971, dense 0.853)"
+    }
+  ]
+}

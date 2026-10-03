@@ -59,7 +59,9 @@
         "ScreeningLimits"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "no tenant or lineage fields yet; see docs/ARCHITECTURE.md section 6"
       ],
@@ -189,7 +191,9 @@
         "WorkflowRequest"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "linear only, no DAG or fan-out - compose with `dag` for graphs",
         "single machine",
@@ -271,7 +275,9 @@
         "CrossEncoderReranker"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "every vendor import is lazy, so failures surface at call time not construction"
       ],
@@ -306,7 +312,9 @@
         "estimate_tokens"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "tables chunked as text",
         "sentence splitting is regex plus an abbreviation list",
@@ -347,7 +355,9 @@
         "DagResult"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "threads, not processes: CPU-bound nodes contend on the GIL",
         "node_timeout bounds how long the scheduler waits, not how long a node runs",
@@ -380,7 +390,9 @@
         "BBox"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "table structure not reconstructed",
         "no OCR or layout model",
@@ -485,7 +497,9 @@
         "validate_dag"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "unweighted graphs only except in shortest_path",
         "no graph mutation; build a new Graph instead",
@@ -550,7 +564,9 @@
         "RankedList"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "cannot improve recall",
         "MMR is quadratic in the candidate pool",
@@ -591,11 +607,14 @@
         "Answer"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "chunks mirrored in memory",
         "sequential across documents",
-        "supersede index is not persisted"
+        "supersede index is not persisted",
+        "cross-process resume re-ingests rather than replays: chunks are process-local, so a checkpoint written by an earlier process cannot be trusted and the work is redone"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_pipelines",
@@ -629,7 +648,9 @@
         "diff_reports"
       ],
       "maturity": "documented",
-      "used_in_projects": [],
+      "used_in_projects": [
+        "validation/paper_triage"
+      ],
       "limitations": [
         "answer scoring is substring matching",
         "binary relevance only",

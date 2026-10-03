@@ -28,9 +28,15 @@ from ..core.limits import (
 )
 from ..core.models import BBox, Block, BlockType, Document, Provenance
 from ..core.text import normalise_text
+from ..doc_layout import (
+    WORD_GAP_RATIO,
+    DocLayoutComponent,
+    LayoutConfig,
+    LayoutRequest,
+    TextSpan,
+)
 from ..doc_layout import BBox as LayoutBBox
 from ..doc_layout import BlockType as LayoutBlockType
-from ..doc_layout import DocLayoutComponent, LayoutConfig, LayoutRequest, TextSpan
 
 _LAYOUT_TO_CORE = {
     LayoutBlockType.HEADING: BlockType.HEADING,
@@ -165,9 +171,14 @@ class PdfPlumberSource:
     reconstruct tables — for either of those, use DoclingSource.
     """
 
-    def __init__(self, config: LayoutConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: LayoutConfig | None = None,
+        x_tolerance_ratio: float = WORD_GAP_RATIO,
+    ) -> None:
         self._config = config or LayoutConfig()
         self._layout = DocLayoutComponent()
+        self._x_tolerance_ratio = x_tolerance_ratio
 
     def supports(self, path: str) -> bool:
         return path.lower().endswith(".pdf")
@@ -243,7 +254,9 @@ class PdfPlumberSource:
                     )
                 page_sizes[page_number] = (float(page.width), float(page.height))
                 words = page.extract_words(
-                    extra_attrs=["size", "fontname"], use_text_flow=False
+                    extra_attrs=["size", "fontname"],
+                    use_text_flow=False,
+                    x_tolerance_ratio=self._x_tolerance_ratio,
                 )
                 for word in words:
                     text = normalise_text(str(word.get("text", "")))
