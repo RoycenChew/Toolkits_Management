@@ -42,3 +42,15 @@
 {"case_id": "q24-black-strings", "query": "What do the exact conformal field theories constructed in three dimensions describe?", "expected_snippets": ["charged black strings in three dimensions"], "tags": ["hep-th", "1991", "old-pdf"]}
 {"case_id": "q25-unanswerable-gallium", "query": "What is the melting point of gallium nitride in degrees Celsius?", "unanswerable": true, "tags": ["unanswerable"]}
 {"case_id": "q26-unanswerable-k8s", "query": "How do I configure a Kubernetes ingress controller with TLS termination?", "unanswerable": true, "tags": ["unanswerable"]}
+# Added 2026-10-03 to validate the F6 relevance-gate fix. Two unanswerable
+# cases were too few to measure a gate change against. These are all plausible
+# technical questions whose answers are simply not in a corpus of physics,
+# maths, IR, CV, CL and audio papers - and several deliberately share common
+# words with it ("point", "degrees", "transformer", "model", "index") because
+# the old gate passed any query sharing one content word with any top hit.
+{"case_id": "q27-unanswerable-postgres", "query": "What is the default port for a PostgreSQL server connection?", "unanswerable": true, "tags": ["unanswerable", "f6"]}
+{"case_id": "q28-unanswerable-transformer-oil", "query": "How often should the insulating oil in an electrical distribution transformer be replaced?", "unanswerable": true, "tags": ["unanswerable", "f6", "shared-vocabulary"]}
+{"case_id": "q29-unanswerable-boiling", "query": "At what temperature in degrees does ethanol boil at sea level?", "unanswerable": true, "tags": ["unanswerable", "f6", "shared-vocabulary"]}
+{"case_id": "q30-unanswerable-visa", "query": "What documents are required for a Schengen tourist visa application?", "unanswerable": true, "tags": ["unanswerable", "f6"]}
+{"case_id": "q31-unanswerable-index-fund", "query": "What is the expense ratio of a typical S&P 500 index fund?", "unanswerable": true, "tags": ["unanswerable", "f6", "shared-vocabulary"]}
+{"case_id": "q32-unanswerable-sourdough", "query": "How long should a sourdough starter ferment before the first bake?", "unanswerable": true, "tags": ["unanswerable", "f6"]}

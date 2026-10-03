@@ -318,7 +318,7 @@
       "limitations": [
         "tables chunked as text",
         "sentence splitting is regex plus an abbreviation list",
-        "default token counter is a heuristic"
+        "default token counter is a heuristic: measured against cl100k_base on 2780 real chunks it leaves 10% of chunks over a 512-token budget, worst 1.59x; pass ChunkConfig.token_counter for an exact count"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_chunking",
@@ -655,7 +655,8 @@
       "limitations": [
         "answer scoring is substring matching",
         "binary relevance only",
-        "no significance testing"
+        "no significance testing",
+        "relevance is judged by verbatim snippet containment, which favours lexical retrieval; unresolvable cases are reported as dataset_errors rather than scored as misses"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_evaluation",

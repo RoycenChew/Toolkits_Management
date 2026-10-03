@@ -1,0 +1,139 @@
+{
+  "step": "all",
+  "started": "2026-10-03T15:46:03",
+  "ingest": {
+    "attempted": 49,
+    "documents": 49,
+    "status_counts": {
+      "ingested": 49
+    },
+    "failed": 0,
+    "failure_rate": 0.0,
+    "chunks_indexed": 3036,
+    "kb_count": 3036,
+    "embedding_calls": 3036,
+    "seconds": 201.44345331192017,
+    "failures": []
+  },
+  "provenance": {
+    "checked": 20,
+    "verified": 20,
+    "out_of_bounds": 0,
+    "text_mismatch": 0,
+    "no_bbox": 0,
+    "examples": []
+  },
+  "tokens": {
+    "chunks": 3036,
+    "over_budget": 298,
+    "over_fraction": 0.0981554677206851,
+    "worst_overshoot": 1.591796875,
+    "ratio_median": 0.96875,
+    "ratio_p95": 1.1591928251121075
+  },
+  "eval": {
+    "metrics": {
+      "hit_rate@1": 0.5238095238095238,
+      "precision@1": 0.5238095238095238,
+      "ndcg@1": 0.5238095238095238,
+      "hit_rate@5": 0.9047619047619048,
+      "precision@5": 0.20952380952380953,
+      "ndcg@5": 0.7097229354862392,
+      "hit_rate@10": 0.9047619047619048,
+      "precision@10": 0.11177248677248677,
+      "ndcg@10": 0.7189337166108711,
+      "mrr": 0.6603174603174603,
+      "map": 0.6511904761904762,
+      "cited_relevant": 0.9047619047619048,
+      "false_refusal": 0.0,
+      "refusal_accuracy": 0.875,
+      "hallucinated_citation": 0.0,
+      "overall_correct": 0.8125,
+      "mean_seconds": 0.1013783000089461,
+      "cases": 32.0,
+      "unanswerable_cases": 8.0,
+      "scored_cases": 21.0,
+      "dataset_errors": 3.0
+    },
+    "cases": 32,
+    "zero_relevant": [
+      "q08-keyword-false-positive",
+      "q11-3d-generation-latents",
+      "q15-prime-geodesic",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost",
+      "q25-unanswerable-gallium",
+      "q26-unanswerable-k8s",
+      "q27-unanswerable-postgres",
+      "q28-unanswerable-transformer-oil",
+      "q29-unanswerable-boiling",
+      "q30-unanswerable-visa",
+      "q31-unanswerable-index-fund",
+      "q32-unanswerable-sourdough"
+    ]
+  },
+  "ablation": {
+    "recall_at_10": {
+      "lexical": 1.0,
+      "dense": 0.8809523809523809,
+      "rrf": 0.9285714285714286
+    },
+    "no_truth_cases": [
+      "q08-keyword-false-positive",
+      "q16-avsd-dataset",
+      "q17-transformer-depth-cost"
+    ],
+    "through_harness": {
+      "fused": {
+        "hit_rate@10": 0.9047619047619048,
+        "ndcg@10": 0.7189337166108711,
+        "scored_cases": 21.0,
+        "dataset_errors": 3.0
+      },
+      "lexical_only": {
+        "hit_rate@10": 0.9523809523809523,
+        "ndcg@10": 0.8011530105375619,
+        "scored_cases": 21.0,
+        "dataset_errors": 3.0
+      },
+      "dense_only": {
+        "hit_rate@10": 0.8571428571428571,
+        "ndcg@10": 0.597348636192381,
+        "scored_cases": 21.0,
+        "dataset_errors": 3.0
+      }
+    }
+  },
+  "dagfanout": {
+    "nodes": 49,
+    "completed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "chunks": 3036,
+    "distinct_docs": 49,
+    "seconds": 185.4909348487854,
+    "errors": {}
+  },
+  "findings": [
+    {
+      "unit": "corpus-reality",
+      "severity": "major",
+      "finding": "29 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()"
+    },
+    {
+      "unit": "chunking",
+      "severity": "major",
+      "finding": "298/3036 chunks (10%) exceed the 512-token budget against a real tokenizer, worst 1.59x; the heuristic counter is documented but this is its real cost"
+    },
+    {
+      "unit": "chunking/golden-set",
+      "severity": "major",
+      "finding": "3 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed"
+    },
+    {
+      "unit": "hybrid_ranker",
+      "severity": "major",
+      "finding": "RRF (0.929) did not beat the better single retriever (lexical 1.000, dense 0.881)"
+    }
+  ]
+}

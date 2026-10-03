@@ -167,6 +167,8 @@ class KnowledgeBase:
                 outcomes.append(
                     DocumentOutcome(path=path, status="failed", error=str(exc))
                 )
+                if cfg.on_document is not None:
+                    cfg.on_document(len(outcomes), len(paths), outcomes[-1])
                 continue
             except Exception as exc:  # noqa: BLE001 - one bad file must not stop a corpus
                 if not cfg.skip_failed:
@@ -176,10 +178,14 @@ class KnowledgeBase:
                         path=path, status="failed", error=type(exc).__name__ + ": " + str(exc)
                     )
                 )
+                if cfg.on_document is not None:
+                    cfg.on_document(len(outcomes), len(paths), outcomes[-1])
                 continue
             outcomes.append(outcome)
             total_chunks += chunk_count
             embedding_calls += calls
+            if cfg.on_document is not None:
+                cfg.on_document(len(outcomes), len(paths), outcome)
 
         return IngestResult(
             documents=outcomes,
@@ -544,11 +550,26 @@ class KnowledgeBase:
             # A query of nothing but stopwords carries no testable signal; let it
             # through rather than refusing on a technicality.
             return True
+
+        # Coverage is measured per chunk and the best chunk decides. Pooling
+        # across hits is what made this gate useless on a real corpus: any
+        # single shared word anywhere in the top ten passed, so every one of
+        # eight pre-registered unanswerable queries was answered with citations
+        # to real but irrelevant text. A chunk that answers a question contains
+        # several of its words together; a large corpus merely contains them
+        # somewhere.
+        needed = cfg.min_term_coverage
+        if needed <= 0.0:
+            needed = 0.0
+        best = 0.0
         for hit in list(lexical[:5]) + list(dense[:5]):
             haystack = (hit.text or "").lower()
-            if any(term in haystack for term in terms):
+            covered = sum(1 for term in terms if term in haystack) / len(terms)
+            if covered > best:
+                best = covered
+            if best >= needed:
                 return True
-        return False
+        return best >= needed
 
     def _content_terms(self, query: str) -> list[str]:
         """Query words that carry meaning. Stopwords match everything, so a gate
@@ -773,6 +794,26 @@ class KnowledgeBase:
 
     def chunk(self, chunk_id: str) -> Chunk | None:
         return self._chunks.get(chunk_id)
+
+    def chunks(self) -> tuple[Chunk, ...]:
+        """Every indexed chunk, in insertion order.
+
+        A snapshot, so mutating the result cannot corrupt the index. Added
+        because auditing what was actually indexed - verifying provenance
+        against the source PDF, checking whether a phrase exists in the corpus
+        at all, exporting the index - previously required reaching into the
+        private `_chunks` dict. `evaluation` now uses this to tell "no chunk
+        contains the expected snippet" apart from "retrieval missed it", which
+        it could not distinguish before.
+
+        O(n) in the number of chunks, and the whole corpus is already held in
+        memory, so this allocates a tuple of references rather than copies.
+        """
+        return tuple(self._chunks.values())
+
+    def documents(self) -> tuple[tuple[str, str], ...]:
+        """`(doc_id, path)` for every indexed document, sorted by path."""
+        return tuple(sorted(((d, p) for d, p in self._doc_paths.items()), key=lambda r: r[1]))
 
 
 __all__ = ["KnowledgeBase"]

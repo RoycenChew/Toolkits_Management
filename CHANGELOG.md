@@ -38,6 +38,104 @@ reached it yet.
 
 ---
 
+## 0.5.0 - 2026-10-03
+
+Closes the six remaining findings from the first real-world validation. Every
+threshold here was measured on 49 real arXiv papers, not chosen.
+
+### Fixed
+
+- **Token estimates under-counted tables of numbers (F3).** `estimate_tokens`
+  modelled prose and nothing else. BPE packs about four letters per token but
+  gives most punctuation marks and digits a token each, so a results table costs
+  far more than its character count implies - the worst real case was a
+  1,534-character table estimated at 383 tokens and actually tokenised at 1,005,
+  a silent 2x overflow of a 512-token budget. A third arm,
+  `words*0.9 + punctuation + digits`, now competes with the existing two.
+  Measured on 2,780 real chunks against `cl100k_base`, chunks the estimate
+  called in-budget while they really were not fell from **959 to 231 (-76%)**;
+  on the re-chunked corpus, chunks over a 512-token budget fell **35.0% to
+  9.8%** and the worst overshoot from **2.65x to 1.59x**. Coefficients are 1.0
+  rather than tuned decimals so this does not specialise to the corpus it was
+  measured on.
+- **The relevance gate answered questions the corpus cannot answer (F6).** It
+  pooled term overlap across the top ten hits, so one shared word passed - and
+  on a real corpus something always shares a word. All eight pre-registered
+  unanswerable queries were answered, with citations to real but irrelevant
+  chunks. Coverage is now measured **per chunk**, best chunk deciding, against
+  the new `AskConfig.min_term_coverage` (default 0.5). Swept over 24 answerable
+  and 8 unanswerable queries: thresholds 0.4-0.6 all give 100% of answerable
+  passing and 88% of unanswerable refused, so 0.5 sits mid-plateau rather than
+  on a knife edge. On the full run `refusal_accuracy` went **0.0000 to 0.8750**
+  with `false_refusal` unchanged at **0.0000**. Set it to 0.0 for the old
+  behaviour.
+- **`EvalRunner` scored unreachable ground truth as a retrieval miss (F5).** A
+  case whose expected snippet exists in no indexed chunk cannot be retrieved by
+  anything, so counting it as a miss blames the ranker for an upstream fault -
+  this harness reported `hit_rate@10` of 0.42 where direct measurement over the
+  resolvable cases gave 0.95. Such cases are now flagged
+  `CaseResult.ground_truth_missing`, counted as `dataset_errors`, and excluded
+  from the retrieval metrics, with `scored_cases` naming the real denominator.
+  They are still scored for refusal, because refusing is the correct response to
+  a question the corpus cannot answer.
+
+### Added
+
+- `KnowledgeBase.chunks()` and `.documents()` (F7): public snapshots of what is
+  indexed. Auditing provenance, checking whether a phrase is in the corpus, or
+  exporting the index previously meant reaching into the private `_chunks` dict.
+  F5 is only implementable because this exists.
+- `EvalConfig.lexical_weight`, `.dense_weight`, `.rrf_k`, `.rerank_budget` (F8),
+  all recorded in the report's config snapshot so `diff_reports` can attribute a
+  metric change to the ablation that caused it. Without them the harness could
+  not answer the one question `hybrid_ranker` exists to settle, because there
+  was no way to turn a retriever off between runs.
+- `IngestConfig.on_document`, called with `(index, total, outcome)` after each
+  document including failures (F9). A 49-document ingest took 38 minutes and
+  printed nothing, so a slow run was indistinguishable from a hung one; the only
+  way to observe progress was to query the durable checkpoint table from another
+  process. A callback rather than logging, because a library that prints is a
+  library you cannot embed, and exceptions from it are deliberately not caught.
+- `DocumentOutcome.status` can now be `'reingested'` (0.4.0) and the docstring
+  defines all four values.
+
+### What this release got wrong
+
+- **A reported improvement was a measurement artefact.** `hit_rate@10` reads
+  0.7917 before F5 and 0.9048 after, but 19 cases hit in both runs: 0.7917 x 24
+  and 0.9048 x 21 are both 19. F5 changed the denominator, not the numerator.
+  Presenting that as a retrieval gain would have been exactly the error F5
+  exists to prevent, and it is recorded here because the temptation was real.
+  The genuine retrieval gains are the earlier extraction fixes, 0.4167 ->
+  0.7917.
+- **A regression test asserted the wrong arm.** The first version of
+  `test_f3_plain_prose_is_not_inflated` bounded prose against `words*1.45` and
+  failed, because prose is dominated by the characters-over-four arm, which
+  already over-estimates English by about a third. That is pre-existing and
+  untouched by this change; the test now asserts the estimate is identical to
+  the two original arms, which is the actual claim.
+- The validation harness went on reporting F7 and F8 as findings after both were
+  fixed. It now uses the public accessor and runs its ablation through
+  `EvalRunner`, which is the only honest proof those additions work.
+
+### Still open
+
+`F4` 29 chunks carry literal `<|endoftext|>` sequences - corpus reality, and any
+caller counting tokens with a real tokenizer must pass `disallowed_special=()`.
+`F11` three golden snippets match no chunk, because they were drawn from arXiv
+metadata abstracts whose wording differs from the PDF bodies - a flaw in the
+golden set, not the toolkit. One of eight unanswerable queries still gets
+through the gate at 0.60 coverage ("the default port for a PostgreSQL server
+connection" shares most of its vocabulary with ML prose); term overlap cannot
+separate that and raising the threshold starts refusing real questions.
+`hybrid_ranker` remains **NOT PROVEN** - lexical alone wins on this metric by
+both measurement paths, but ground truth is verbatim snippet containment, which
+scores BM25 on precisely its own task. Settling it needs semantic relevance
+judgements, which is the one thing this validation project has shown it cannot
+provide.
+
+---
+
 ## 0.4.1 - 2026-10-03
 ### 0.4.1 - 2026-10-03
 

@@ -69,8 +69,15 @@ class EvalRunner:
             candidates_per_retriever=cfg.candidates_per_retriever,
             relevance_gate=cfg.relevance_gate,
             min_dense_similarity=cfg.min_dense_similarity,
+            lexical_weight=cfg.lexical_weight,
+            dense_weight=cfg.dense_weight,
+            rrf_k=cfg.rrf_k,
+            rerank_budget=cfg.rerank_budget,
         )
-        results = [self._run_case(case, ask_config, cfg) for case in dataset.cases]
+        resolvable = self._resolvable(dataset)
+        results = [
+            self._run_case(case, ask_config, cfg, resolvable) for case in dataset.cases
+        ]
         return EvalReport(
             dataset=dataset.name,
             metrics=self._aggregate(results, dataset.cases, cfg),
@@ -79,8 +86,41 @@ class EvalRunner:
             created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
 
+    def _resolvable(self, dataset: EvalDataset) -> dict[str, bool]:
+        """Which cases have ground truth that some indexed chunk satisfies?
+
+        Needs to enumerate the corpus, which `KnowledgeBase.chunks()` provides.
+        When the knowledge base does not expose it - any duck-typed stand-in -
+        every case is assumed resolvable, which is the previous behaviour and
+        errs towards reporting a retrieval miss rather than silently dropping a
+        case from the denominator.
+        """
+        enumerate_chunks = getattr(self._kb, "chunks", None)
+        if not callable(enumerate_chunks):
+            return {}
+        try:
+            corpus = list(enumerate_chunks())
+        except Exception:  # noqa: BLE001 - a stand-in that raises is not a failure here
+            return {}
+        if not corpus:
+            return {}
+        out: dict[str, bool] = {}
+        for case in dataset.cases:
+            if case.unanswerable:
+                continue
+            if not (
+                case.expected_snippets or case.expected_doc_ids or case.expected_pages
+            ):
+                continue
+            out[case.case_id] = any(judge_relevance(c, case) for c in corpus)
+        return out
+
     def _run_case(
-        self, case: EvalCase, ask_config: AskConfig, cfg: EvalConfig
+        self,
+        case: EvalCase,
+        ask_config: AskConfig,
+        cfg: EvalConfig,
+        resolvable: dict[str, bool] | None = None,
     ) -> CaseResult:
         started = time.monotonic()
         answer: Answer = self._kb.ask(case.query, ask_config)
@@ -118,6 +158,7 @@ class EvalRunner:
             answer_hits=hits,
             answer_misses=misses,
             unverified_markers=list(answer.unverified_markers),
+            ground_truth_missing=(resolvable or {}).get(case.case_id, True) is False,
             cited_relevant=cited_relevant,
             seconds=elapsed,
         )
@@ -135,8 +176,25 @@ class EvalRunner:
         time. Averaged together those cancel out and the report says nothing
         changed.
         """
-        answerable = [r for r in results if not r.unanswerable]
         unanswerable = [r for r in results if r.unanswerable]
+        # A case whose expected snippet exists in NO indexed chunk cannot be
+        # retrieved by anything, so scoring it as a retrieval miss blames the
+        # ranker for a fault upstream of it. Real use made this concrete: this
+        # harness reported hit_rate@10 of 0.42 on a corpus where direct
+        # measurement over the resolvable cases gave 0.95, because extraction
+        # had mangled the text the snippets were written against. Someone
+        # trusting the number would have gone and tuned the ranker.
+        #
+        # Such cases are reported as `dataset_errors` and excluded from the
+        # retrieval metrics. They are still counted in `cases`, and still
+        # scored for refusal, because refusing is the correct response to a
+        # question the corpus cannot answer.
+        answerable = [
+            r for r in results if not r.unanswerable and not r.ground_truth_missing
+        ]
+        unresolvable = [
+            r for r in results if not r.unanswerable and r.ground_truth_missing
+        ]
         out: dict[str, float] = {}
 
         for k in cfg.k_values:
@@ -176,6 +234,8 @@ class EvalRunner:
         out["mean_seconds"] = m.mean([r.seconds for r in results])
         out["cases"] = float(len(results))
         out["unanswerable_cases"] = float(len(unanswerable))
+        out["scored_cases"] = float(len(answerable))
+        out["dataset_errors"] = float(len(unresolvable))
         return out
 
     def _snapshot(self, cfg: EvalConfig, ask: AskConfig) -> dict[str, Any]:
@@ -186,6 +246,13 @@ class EvalRunner:
             "rrf_k": ask.rrf_k,
             "relevance_gate": ask.relevance_gate,
             "min_dense_similarity": ask.min_dense_similarity,
+            "min_term_coverage": ask.min_term_coverage,
+            # Recorded so `diff_reports` can attribute a metric change to the
+            # ablation that caused it. An ablation whose settings are not in the
+            # snapshot is indistinguishable from a regression.
+            "lexical_weight": ask.lexical_weight,
+            "dense_weight": ask.dense_weight,
+            "rerank_budget": ask.rerank_budget,
             "evaluate_answers": cfg.evaluate_answers,
             "embedder": type(getattr(kb, "embedder", None)).__name__,
             "vector_store": type(getattr(kb, "vector_store", None)).__name__,

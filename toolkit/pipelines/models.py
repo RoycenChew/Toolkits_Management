@@ -1,7 +1,7 @@
 """Data contracts for the ingest and ask pipelines."""
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from ..core.limits import ScreeningLimits
@@ -21,6 +21,20 @@ class IngestConfig:
     payload limit; 32 is safe everywhere."""
     max_workers: int = 4
     """Parallel embedding batches per document."""
+    on_document: Callable[[int, int, DocumentOutcome], None] | None = None
+    """Called after each document with `(index, total, outcome)`, 1-based.
+
+    Ingest is sequential across documents and a real corpus takes a long time -
+    49 arXiv PDFs took 38 minutes - during which this call printed nothing, so a
+    slow run was indistinguishable from a hung one. The only way to observe
+    progress was to query the durable checkpoint table from another process,
+    which only worked because `durable_db` happened to be set.
+
+    A callback rather than built-in logging: a library that prints is a library
+    you cannot embed. Raised exceptions are deliberately **not** caught - a
+    broken progress reporter is a bug in the caller's code and hiding it would
+    make it unfindable.
+    """
     durable_db: str | None = None
     """Path to a checkpoint database. When set, each document becomes one durable
     step, so a crash mid-corpus costs the document in flight and nothing else.
@@ -101,9 +115,44 @@ class AskConfig:
     confidently-ranked top result. Without this gate a knowledge base answers
     every question, which is the failure mode that destroys trust fastest.
 
-    The gate passes if a retrieved chunk literally shares a content word with the
-    query, or — when `min_dense_similarity` is set — if dense similarity clears
-    that floor."""
+    The gate passes when one retrieved chunk covers enough of the query's
+    content words (see `min_term_coverage`), or — when `min_dense_similarity`
+    is set — if dense similarity clears that floor."""
+
+    min_term_coverage: float = 0.5
+    """Fraction of the query's content words one retrieved chunk must contain.
+
+    Measured against a single chunk, not pooled across hits, and that is the
+    whole point. This gate used to pass if *any* content word appeared in *any*
+    top hit, which on a real corpus is no test at all: a question about
+    PostgreSQL ports or ethanol boiling points shares "default", "server",
+    "point" or "degrees" with some paper, so **all eight pre-registered
+    unanswerable queries were answered**, with citations to real but irrelevant
+    chunks. A relevant chunk contains several of the query's words *together*;
+    an irrelevant corpus merely contains them somewhere.
+
+    0.5 was measured on 49 real papers against 24 answerable and 8 unanswerable
+    queries:
+
+        gate                         answerable passed   unanswerable refused
+        any term in any hit (old)         100%                    0%
+        coverage >= 0.4 .. 0.6            100%                   88%
+        coverage >= 0.7                    88%                  100%
+
+    Thresholds from 0.4 to 0.6 all score identically - the lowest answerable
+    query sits at 0.62 and seven of eight unanswerable ones at or below 0.33 -
+    so 0.5 sits in the middle of a plateau rather than on a knife edge. It costs
+    nothing in false refusals on that set.
+
+    The one unanswerable query that still gets through scores 0.60: "the default
+    port for a PostgreSQL server connection" genuinely shares most of its
+    vocabulary with machine-learning prose. Term overlap cannot separate that,
+    and raising the threshold to catch it starts refusing real questions, which
+    is the worse error.
+
+    Set to `0.0` for the old any-word behaviour, or to `1.0` to demand a chunk
+    containing every content word.
+    """
 
     min_dense_similarity: float | None = None
     """Cosine floor for the dense arm of the gate. `None` disables that arm, so

@@ -106,6 +106,20 @@ class EvalConfig:
     diff records what changed. Without these on the eval config, comparing gate
     settings means reaching around the harness to patch the pipeline."""
 
+    lexical_weight: float = 1.0
+    dense_weight: float = 1.0
+    rrf_k: int = 60
+    rerank_budget: int = 0
+    """Fusion knobs, for the same reason.
+
+    Without them the harness could not answer the one question `hybrid_ranker`
+    exists to settle - does fusing two retrievers beat either alone - because
+    there was no way to turn a retriever off between runs. Setting
+    `lexical_weight=0.0` or `dense_weight=0.0` gives the single-retriever
+    baselines, so an ablation is three eval runs and a `diff_reports` call
+    instead of a bespoke script.
+    """
+
 
 @dataclass
 class CaseResult:
@@ -121,6 +135,14 @@ class CaseResult:
     answer_hits: Sequence[str] = field(default_factory=list)
     answer_misses: Sequence[str] = field(default_factory=list)
     unverified_markers: Sequence[int] = field(default_factory=list)
+    ground_truth_missing: bool = False
+    """No indexed chunk satisfies this case's expectations.
+
+    The case is unscoreable rather than failed: nothing could have retrieved it.
+    Counted as a `dataset_error` and excluded from the retrieval metrics, so an
+    extraction fault or a mis-transcribed snippet is not reported as a ranking
+    problem.
+    """
     cited_relevant: bool = False
     """Did the model cite at least one chunk that was actually relevant? Higher
     bar than 'a relevant chunk was retrieved', and closer to what a reader sees."""

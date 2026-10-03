@@ -448,3 +448,128 @@ sequential in every run - 49 distinct doc_ids, 0 failures.
 | `evaluation` | **NEEDS IMPROVEMENT** | F5, F8 open |
 | `hybrid_ranker` | **NOT PROVEN** | metric saturated; needs a different experiment |
 | `guardrails` and 5 others | **NOT EXERCISED** | no LLM in this run |
+
+---
+
+# All findings closed (2026-10-03)
+
+F3, F5, F6, F7, F8 and F9 fixed. Corpus re-parsed from scratch; the golden set
+grew from 26 to 32 cases, because two unanswerable queries were too few to
+measure a gate change against.
+
+| Metric | Original | +F1/F2 | +F10 | +F3/F5/F6 |
+|---|---|---|---|---|
+| Documents ingested | 49/49, 0 fail | 49/49 | 49/49 | **49/49, 0 fail** |
+| Chunk bboxes verified | 18/20 | 20/20 | 20/20 | **20/20** |
+| `hit_rate@10` | 0.4167 | 0.6667 | 0.7917 | **0.9048** |
+| `ndcg@10` | 0.3347 | 0.5628 | 0.6390 | **0.7189** |
+| `cited_relevant` | 0.4167 | 0.6667 | 0.7917 | **0.9048** |
+| `overall_correct` | 0.3846 | 0.6154 | 0.7308 | **0.8125** |
+| `refusal_accuracy` | 0.0000 | 0.0000 | 0.0000 | **0.8750** |
+| `false_refusal` | 0.0000 | 0.0000 | 0.0000 | **0.0000** |
+| Chunks over a 512-token budget | 44.4% | 35.1% | 35.0% | **9.8%** |
+| Worst token overshoot | 2.65x | 2.65x | 2.65x | **1.59x** |
+| real/estimated tokens, median | 1.15 | 1.04 | 1.03 | **0.97** |
+| Unanswerable cases | 2 | 2 | 2 | **8** |
+
+## One number needs honest accounting
+
+`hit_rate@10` reads 0.7917 before F5 and 0.9048 after, but **19 cases hit in
+both runs**: 0.7917 x 24 = 19 and 0.9048 x 21 = 19. F5 changed the denominator,
+not the numerator - it stopped counting three cases whose expected snippet
+exists in no chunk as retrieval misses. That is a measurement correction, not a
+retrieval improvement, and reporting it as the latter would be exactly the
+mistake F5 exists to prevent.
+
+The genuine retrieval gains are the earlier ones: 0.4167 -> 0.7917 from the
+three extraction fixes.
+
+## What each fix did
+
+**F3 - token counter.** Added a third arm, `words*0.9 + punctuation + digits`,
+because the first two model prose and nothing else: BPE packs ~4 letters per
+token but gives most punctuation and digits a token each, so a results table
+costs far more than its character count implies. The worst real case was a
+1,534-character table estimated at 383 tokens and actually 1,005.
+
+Measured on 2,780 chunks against `cl100k_base`: chunks the estimate called
+in-budget while they really were not fell from **959 to 231 (-76%)**. On the
+re-chunked corpus, chunks over a 512-token budget fell **35.0% -> 9.8%** and the
+worst overshoot **2.65x -> 1.59x**. The median ratio moved 1.03 -> 0.97, so
+chunks now sit just *under* budget rather than just over, which is the direction
+a budget wants to err in and what the docstring already claimed.
+
+Coefficients are 1.0, not tuned decimals, so this does not quietly specialise to
+the corpus it was measured on.
+
+**F5 - dataset errors.** `EvalRunner` now scans the corpus (via the new
+`KnowledgeBase.chunks()`) and marks any case whose expectations no chunk
+satisfies as `ground_truth_missing`. Those are reported as `dataset_errors` and
+excluded from retrieval metrics, with `scored_cases` naming the real
+denominator. They are still scored for refusal, because refusing is correct when
+the corpus cannot answer.
+
+**F6 - relevance gate.** The gate measured term overlap pooled across the top
+ten hits, so a single shared word passed. On a real corpus that is no test at
+all, and all eight unanswerable queries were answered with citations to real but
+irrelevant chunks. Coverage is now measured **per chunk**, with the best chunk
+deciding, against `AskConfig.min_term_coverage` (default 0.5).
+
+Swept on the real corpus over 24 answerable and 8 unanswerable queries:
+
+| gate | answerable passed | unanswerable refused |
+|---|---|---|
+| any term in any hit (old) | 100% | **0%** |
+| coverage >= 0.4 .. 0.6 | 100% | **88%** |
+| coverage >= 0.7 | 88% | 100% |
+
+Thresholds 0.4-0.6 score identically - the lowest answerable query sits at 0.62,
+seven of eight unanswerable at or below 0.33 - so 0.5 sits mid-plateau rather
+than on a knife edge, and costs nothing in false refusals. Confirmed on the full
+run: `refusal_accuracy` 0.0000 -> **0.8750**, `false_refusal` stayed **0.0000**.
+
+The one that still slips through scores 0.60: "the default port for a PostgreSQL
+server connection" genuinely shares most of its vocabulary with ML prose. Term
+overlap cannot separate that, and raising the threshold starts refusing real
+questions, which is the worse error. Left as a documented limit.
+
+**F7 - `KnowledgeBase.chunks()` and `.documents()`.** Public snapshots. This
+validation harness no longer touches a private attribute, and F5 is only
+implementable because of it.
+
+**F8 - fusion weights on `EvalConfig`.** `lexical_weight`, `dense_weight`,
+`rrf_k`, `rerank_budget`, all recorded in the report's config snapshot so
+`diff_reports` can attribute a change to the ablation that caused it. The
+ablation now runs through `EvalRunner` instead of calling
+`HybridRankerComponent` directly:
+
+    fused         hit_rate@10 0.9048   ndcg@10 0.7189
+    lexical_only  hit_rate@10 0.9524   ndcg@10 0.8012
+    dense_only    hit_rate@10 0.8571   ndcg@10 0.5973
+
+**F9 - `IngestConfig.on_document`.** Called with `(index, total, outcome)` after
+every document, failures included. A callback rather than logging, because a
+library that prints is a library you cannot embed. Exceptions are deliberately
+not caught - a broken progress reporter is a bug in the caller's code.
+
+## `hybrid_ranker`: still NOT PROVEN, and now measured two ways
+
+Both paths agree that lexical alone wins on this metric: through the harness,
+`hit_rate@10` 0.9524 lexical vs 0.9048 fused; measured directly, recall@10 1.000
+lexical vs 0.929 RRF.
+
+That remains uninformative rather than damning. Ground truth is *a chunk
+containing the expected snippet verbatim*, so BM25 is scored on exactly its own
+task and reaches 1.000; fusion can then only dilute it by blending in a weaker
+list. Settling the question needs semantic relevance judgements, which is a
+different corpus and a different golden set - the one piece of work this
+validation project has shown it cannot do.
+
+## Remaining open
+
+| Finding | Status |
+|---|---|
+| F4 - 29 chunks carry `<|endoftext|>` literals | corpus reality, documented; callers using a real tokenizer must pass `disallowed_special=()` |
+| F11 - 3 golden snippets match no chunk | my golden set: drawn from arXiv metadata abstracts that differ from the PDF bodies |
+| F6 residual - 1 of 8 unanswerable queries still answered | documented limit of term overlap |
+| `hybrid_ranker` unproven | needs a semantic-relevance corpus |

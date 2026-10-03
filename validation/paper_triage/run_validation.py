@@ -75,20 +75,12 @@ def finding(unit: str, severity: str, text: str) -> None:
 
 
 def all_chunks(kb: KnowledgeBase) -> list:
-    """Enumerate indexed chunks.
+    """Enumerate indexed chunks via the public accessor (F7, now fixed).
 
-    There is no public accessor, so this reaches into `_chunks`. Recorded as a
-    finding once: a consumer that wants to audit what was indexed has to use a
-    private attribute.
+    This used to reach into the private `_chunks` dict and report a finding for
+    doing so. `KnowledgeBase.chunks()` exists because of that finding.
     """
-    finding(
-        "pipelines",
-        "minor",
-        "no public accessor for indexed chunks; auditing what was indexed "
-        "requires reaching into the private `_chunks` dict",
-    )
-    store = getattr(kb, "_chunks", None) or {}
-    return list(store.values()) if hasattr(store, "values") else list(store)
+    return list(kb.chunks())
 
 
 def chunk_path(chunk) -> str | None:
@@ -480,12 +472,33 @@ def step_ablation(kb: KnowledgeBase) -> dict:
         return {"skipped": "golden set missing"}
     dataset = EvalDataset.from_jsonl(GOLDEN_PATH)
 
-    note = (
-        "EvalConfig exposes no fusion weights, so the fusion claim cannot be "
-        "ablated through EvalRunner; measured against hybrid_ranker directly"
-    )
-    print(f"  note: {note}")
-    finding("evaluation", "minor", note)
+    # F8, now fixed: EvalConfig carries the fusion weights, so the ablation runs
+    # through EvalRunner itself. It used to require calling HybridRankerComponent
+    # directly because there was no way to turn a retriever off between runs.
+    print("  through EvalRunner, using EvalConfig fusion weights (F8)")
+    runner = EvalRunner(kb)
+    through_harness = {}
+    for label, weights in (
+        ("fused", {}),
+        ("lexical_only", {"dense_weight": 0.0}),
+        ("dense_only", {"lexical_weight": 0.0}),
+    ):
+        report = runner.execute(
+            dataset,
+            EvalConfig(k_values=(1, 5, 10), top_k=10, evaluate_answers=False, **weights),
+        )
+        through_harness[label] = {
+            "hit_rate@10": report.metrics["hit_rate@10"],
+            "ndcg@10": report.metrics["ndcg@10"],
+            "scored_cases": report.metrics["scored_cases"],
+            "dataset_errors": report.metrics["dataset_errors"],
+        }
+        print(
+            f"    {label:13s} hit_rate@10 {report.metrics['hit_rate@10']:.4f}"
+            f"  ndcg@10 {report.metrics['ndcg@10']:.4f}"
+            f"  (scored {report.metrics['scored_cases']:.0f},"
+            f" dataset_errors {report.metrics['dataset_errors']:.0f})"
+        )
 
     indexed = all_chunks(kb)
 
@@ -570,7 +583,11 @@ def step_ablation(kb: KnowledgeBase) -> dict:
             f"RRF ({out['rrf']:.3f}) did not beat the better single retriever "
             f"(lexical {out['lexical']:.3f}, dense {out['dense']:.3f})",
         )
-    return {"recall_at_10": out, "no_truth_cases": missing_truth}
+    return {
+        "recall_at_10": out,
+        "no_truth_cases": missing_truth,
+        "through_harness": through_harness,
+    }
 
 
 # --------------------------------------------------------------------------- #

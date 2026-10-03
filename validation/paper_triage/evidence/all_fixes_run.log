@@ -1,0 +1,95 @@
+
+=== INGEST: 49 real PDFs ===
+  seconds        : 201.4
+  documents      : 49
+  chunks indexed : 3036 (kb.count=3036)
+  embedding calls: 3036
+  failures       : 0
+  status counts  : {'ingested': 49}
+
+=== PROVENANCE: re-opening PDFs to verify 20 chunk bboxes ===
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+  checked        : 20
+  verified       : 20
+  out of bounds  : 0
+  text mismatch  : 0
+  chunks w/o bbox: 0
+
+=== TOKENS: heuristic vs real tokenizer (budget 512) ===
+  chunks            : 3036
+  over budget       : 298 (9.8%)
+  worst overshoot   : 1.59x budget
+  real/est  median  : 0.97
+  real/est  p95     : 1.16
+  [MAJOR   ] corpus-reality: 29 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()
+  chunks w/ '<|'    : 29
+  [MAJOR   ] chunking: 298/3036 chunks (10%) exceed the 512-token budget against a real tokenizer, worst 1.59x; the heuristic counter is documented but this is its real cost
+
+=== EVAL: pre-registered golden set ===
+  cases: 32
+  cases                        32.0000
+  cited_relevant               0.9048
+  dataset_errors               3.0000
+  false_refusal                0.0000
+  hallucinated_citation        0.0000
+  hit_rate@1                   0.5238
+  hit_rate@10                  0.9048
+  hit_rate@5                   0.9048
+  map                          0.6512
+  mean_seconds                 0.1014
+  mrr                          0.6603
+  ndcg@1                       0.5238
+  ndcg@10                      0.7189
+  ndcg@5                       0.7097
+  overall_correct              0.8125
+  precision@1                  0.5238
+  precision@10                 0.1118
+  precision@5                  0.2095
+  refusal_accuracy             0.8750
+  scored_cases                 21.0000
+  unanswerable_cases           8.0000
+  cases retrieving nothing relevant: 13/32
+    - q08-keyword-false-positive: How can keyword-matching benchmarks mislead about tool use in small mo
+    - q11-3d-generation-latents: What does high-resolution 3D generation increasingly rely on?
+    - q15-prime-geodesic: What is improved in the prime geodesic theorem?
+    - q16-avsd-dataset: What is the AVSD-Scenes dataset?
+    - q17-transformer-depth-cost: What is the cost of increasing the depth of transformer models?
+    - q25-unanswerable-gallium: What is the melting point of gallium nitride in degrees Celsius?
+    - q26-unanswerable-k8s: How do I configure a Kubernetes ingress controller with TLS terminatio
+    - q27-unanswerable-postgres: What is the default port for a PostgreSQL server connection?
+    - q28-unanswerable-transformer-oil: How often should the insulating oil in an electrical distribution tran
+    - q29-unanswerable-boiling: At what temperature in degrees does ethanol boil at sea level?
+
+=== ABLATION: lexical-only vs dense-only vs RRF ===
+  through EvalRunner, using EvalConfig fusion weights (F8)
+    fused         hit_rate@10 0.9048  ndcg@10 0.7189  (scored 21, dataset_errors 3)
+    lexical_only  hit_rate@10 0.9524  ndcg@10 0.8012  (scored 21, dataset_errors 3)
+    dense_only    hit_rate@10 0.8571  ndcg@10 0.5973  (scored 21, dataset_errors 3)
+  recall@10 lexical  1.0000  (n=21)
+  recall@10 dense    0.8810  (n=21)
+  recall@10 rrf      0.9286  (n=21)
+  cases whose expected snippet is in NO chunk: 3
+    - q08-keyword-false-positive
+    - q16-avsd-dataset
+    - q17-transformer-depth-cost
+  [MAJOR   ] chunking/golden-set: 3 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed
+  [MAJOR   ] hybrid_ranker: RRF (0.929) did not beat the better single retriever (lexical 1.000, dense 0.881)
+
+=== DAG FAN-OUT: ingest 1 node per PDF ===
+  seconds   : 185.5
+  status    : RunStatus.COMPLETED
+  completed : 49  failed: 0  skipped: 0
+  chunks    : 3036
+  distinct doc_ids: 49 (expected 49)
+
+4 finding(s) -> C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\results\report_all.json

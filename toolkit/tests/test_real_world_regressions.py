@@ -254,3 +254,232 @@ def test_f10_a_document_without_rotation_reports_zero(tmp_path) -> None:
     document = PdfPlumberSource().load(path)
 
     assert document.metadata["rotated_glyphs_excluded"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# F3 - the heuristic token counter under-counted tables of numbers
+# --------------------------------------------------------------------------- #
+def test_f3_numeric_tables_are_not_under_counted() -> None:
+    """A results table costs far more tokens than its character count implies.
+
+    BPE gives most digits and punctuation marks a token each while packing about
+    four letters per token. The worst real case was a 1,534-character results
+    table estimated at 383 tokens and actually tokenised at 1,005 - a silent 2x
+    overflow of a 512-token budget.
+    """
+    from toolkit.chunking import estimate_tokens
+
+    prose = "The experiment measured a modest improvement in retrieval quality. " * 6
+    table = "5.77 6.42 3.88 1.78 5.43 7.39 9.62 10.41 2.13 5.92 2.10 1.70 4.68 " * 6
+
+    assert abs(len(table) - len(prose)) < 0.4 * len(prose), (
+        "fixture should compare texts of similar length"
+    )
+    assert estimate_tokens(table) > estimate_tokens(prose), (
+        "a table of numbers must be estimated higher than prose of the same length"
+    )
+
+
+def test_f3_estimate_errs_on_the_high_side_for_symbol_heavy_text() -> None:
+    """Over-estimating is the safe error for a budget; under-estimating overflows."""
+    from toolkit.chunking import estimate_tokens
+
+    symbols = "f(x) = a*x^2 + b*x + c; dy/dx = 2*a*x + b; |x| <= 1e-6, " * 8
+    assert estimate_tokens(symbols) > len(symbols) / 4.0
+
+
+def test_f3_plain_prose_is_not_inflated() -> None:
+    """The symbol arm must not fire on ordinary text and shrink every chunk.
+
+    Asserted as "the estimate is unchanged from the two original arms" rather
+    than against an absolute bound, because prose is dominated by the
+    characters-over-four arm and that arm already over-estimates it by about a
+    third. That is pre-existing behaviour and not what this fix touched; the
+    claim here is only that the new arm adds nothing for prose.
+    """
+    from toolkit.chunking import estimate_tokens
+
+    prose = (
+        "This paragraph is ordinary English prose with normal punctuation. "
+        "It should be estimated by the character and word arms, not by the "
+        "symbol arm, because inflating prose wastes the context window. "
+    ) * 4
+    stripped = prose.strip()  # estimate_tokens strips before measuring
+    original_arms = max(len(stripped) / 4.0, len(stripped.split()) * 1.3)
+
+    assert estimate_tokens(prose) == int(original_arms)
+
+
+# --------------------------------------------------------------------------- #
+# F5 - unresolvable ground truth was scored as a retrieval miss
+# --------------------------------------------------------------------------- #
+def test_f5_a_snippet_in_no_chunk_is_a_dataset_error_not_a_miss(tmp_path) -> None:
+    """Blaming the ranker for an upstream fault sends you to tune the wrong thing.
+
+    Real symptom: this harness reported hit_rate@10 of 0.42 on a corpus where
+    direct measurement over the resolvable cases gave 0.95, because extraction
+    had mangled the text the snippets were written against.
+    """
+    from toolkit.evaluation import EvalCase, EvalConfig, EvalDataset, EvalRunner
+
+    path = _tight_pdf(tmp_path)
+    kb = _kb()
+    kb.ingest([path])
+
+    dataset = EvalDataset(
+        name="f5",
+        cases=[
+            EvalCase(
+                case_id="resolvable",
+                query="supersingular abelian surfaces essential",
+                expected_snippets=["Supersingular abelian surfaces are essential in"],
+            ),
+            EvalCase(
+                case_id="not-in-corpus",
+                query="supersingular abelian surfaces essential",
+                expected_snippets=["this phrase appears in no indexed chunk anywhere"],
+            ),
+        ],
+    )
+    report = EvalRunner(kb).execute(dataset, EvalConfig(evaluate_answers=False))
+
+    by_id = {c.case_id: c for c in report.cases}
+    assert by_id["not-in-corpus"].ground_truth_missing is True
+    assert by_id["resolvable"].ground_truth_missing is False
+    assert report.metrics["dataset_errors"] == 1.0
+    assert report.metrics["scored_cases"] == 1.0
+    # The unscoreable case must not drag the retrieval metric down to 0.5.
+    assert report.metrics["hit_rate@1"] == 1.0, report.metrics
+
+
+# --------------------------------------------------------------------------- #
+# F6 - the relevance gate answered questions the corpus cannot answer
+# --------------------------------------------------------------------------- #
+CLEANING_QUERY = "What cleaning product is recommended for laminate kitchen surfaces?"
+
+
+def test_f6_a_single_shared_word_no_longer_passes_the_gate(tmp_path) -> None:
+    """Coverage is measured per chunk, so one incidental word is not enough.
+
+    All eight pre-registered unanswerable queries were answered before this,
+    with citations to real but irrelevant chunks.
+    """
+    from toolkit.pipelines import AskConfig
+
+    kb = _kb()
+    kb.ingest([_tight_pdf(tmp_path)])
+
+    answer = kb.ask(CLEANING_QUERY, AskConfig())
+
+    assert not answer.citations, "answered an unanswerable question: " + answer.text[:200]
+    assert not answer.grounded
+
+
+def test_f6_a_real_question_is_still_answered(tmp_path) -> None:
+    """The gate must not buy refusal accuracy with false refusals."""
+    from toolkit.pipelines import AskConfig
+
+    kb = _kb()
+    kb.ingest([_tight_pdf(tmp_path)])
+
+    answer = kb.ask("What are supersingular abelian surfaces essential in?", AskConfig())
+
+    assert answer.citations, "refused a question the corpus answers"
+
+
+def test_f6_the_old_behaviour_is_still_reachable(tmp_path) -> None:
+    """`min_term_coverage=0.0` restores the any-word gate.
+
+    This also proves the test above measures the threshold rather than something
+    incidental about the fixture.
+    """
+    from toolkit.pipelines import AskConfig
+
+    kb = _kb()
+    kb.ingest([_tight_pdf(tmp_path)])
+
+    lenient = kb.ask(CLEANING_QUERY, AskConfig(min_term_coverage=0.0))
+
+    assert lenient.citations, "the lenient gate should still answer anything"
+
+
+# --------------------------------------------------------------------------- #
+# F7 / F8 / F9 - the ergonomic gaps a real consumer hit
+# --------------------------------------------------------------------------- #
+def test_f7_indexed_chunks_are_publicly_enumerable(tmp_path) -> None:
+    """Auditing the index used to require reaching into a private dict."""
+    path = _tight_pdf(tmp_path)
+    kb = _kb()
+    kb.ingest([path])
+
+    chunks = kb.chunks()
+
+    assert chunks
+    assert len(chunks) == kb.count()
+    assert all(c.provenances for c in chunks)
+    assert isinstance(chunks, tuple), "must be a snapshot, not the live mapping"
+
+    documents = kb.documents()
+    assert len(documents) == 1
+    assert documents[0][1] == path
+
+
+def test_f8_eval_config_carries_the_fusion_weights(tmp_path) -> None:
+    """Without these the harness could not ablate the fusion it exists to measure."""
+    from toolkit.evaluation import EvalCase, EvalConfig, EvalDataset, EvalRunner
+
+    kb = _kb()
+    kb.ingest([_tight_pdf(tmp_path)])
+    dataset = EvalDataset(
+        name="f8",
+        cases=[
+            EvalCase(
+                case_id="c1",
+                query="supersingular abelian surfaces essential",
+                expected_snippets=["Supersingular abelian surfaces are essential in"],
+            )
+        ],
+    )
+
+    report = EvalRunner(kb).execute(
+        dataset, EvalConfig(evaluate_answers=False, lexical_weight=0.0)
+    )
+
+    assert report.config["lexical_weight"] == 0.0
+    assert report.config["dense_weight"] == 1.0
+
+
+def test_f9_ingest_reports_progress_per_document(tmp_path) -> None:
+    """A 38-minute call that prints nothing is indistinguishable from a hang."""
+    from toolkit.pipelines import IngestConfig
+
+    seen: list[tuple[int, int, str]] = []
+    kb = _kb()
+    kb.ingest(
+        [_tight_pdf(tmp_path)],
+        IngestConfig(
+            on_document=lambda index, total, outcome: seen.append(
+                (index, total, outcome.status)
+            )
+        ),
+    )
+
+    assert seen == [(1, 1, "ingested")]
+
+
+def test_f9_progress_fires_for_failures_too(tmp_path) -> None:
+    """A reporter that goes quiet exactly when something breaks is worthless."""
+    from toolkit.pipelines import IngestConfig
+
+    broken = os.path.join(str(tmp_path), "broken.pdf")
+    with open(broken, "wb") as handle:
+        handle.write(b"this is not a PDF at all")
+
+    seen: list[str] = []
+    kb = _kb()
+    result = kb.ingest(
+        [broken], IngestConfig(on_document=lambda i, t, o: seen.append(o.status))
+    )
+
+    assert [o.status for o in result.documents] == ["failed"]
+    assert seen == ["failed"]

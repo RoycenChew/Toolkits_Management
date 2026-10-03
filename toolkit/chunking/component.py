@@ -73,14 +73,44 @@ def estimate_tokens(text: str) -> int:
 
     cjk = sum(1 for char in stripped if _is_cjk(char))
     if not cjk:
-        words = len(stripped.split())
-        return max(1, int(max(len(stripped) / 4.0, words * 1.3)))
+        return max(1, int(_latin_arms(stripped)))
 
     # Mixed text: score each script with the rule that suits it, then add.
     rest = "".join(char for char in stripped if not _is_cjk(char))
-    rest_words = len(rest.split())
-    rest_tokens = max(len(rest) / 4.0, rest_words * 1.3) if rest.strip() else 0.0
+    rest_tokens = _latin_arms(rest) if rest.strip() else 0.0
     return max(1, int(cjk + rest_tokens))
+
+
+def _latin_arms(text: str) -> float:
+    """The three heuristics for space-separated text; the largest wins.
+
+    The third arm exists because the first two model prose and nothing else. A
+    BPE vocabulary packs roughly four letters into a token, but gives most
+    punctuation marks and most digits a token each, so a table of numbers costs
+    far more than its character count suggests. Measured on 2,780 chunks of real
+    papers, the worst case was a results table of 1,534 characters that the old
+    estimate put at 383 tokens and `cl100k_base` actually tokenised at **1,005**
+    - a chunk that would silently overflow a 512-token budget by 2x.
+
+    Counting punctuation and digits at one token each is the model, not a fit:
+    the coefficients are 1.0 rather than tuned decimals so this does not quietly
+    specialise to the corpus it was measured on.
+
+    Effect on those 2,780 chunks, against `cl100k_base` with a 512-token budget:
+    chunks the estimate called in-budget while they really were not fell from
+    **959 to 231**, a 76% reduction. The cost is a median real/estimated ratio of
+    0.97 instead of 1.03, so chunks now run about 3% under budget rather than 3%
+    over - which is the direction the budget wants to err in, and what this
+    function's docstring already claimed it did.
+    """
+    words = len(text.split())
+    symbols = sum(1 for char in text if not char.isalnum() and not char.isspace())
+    digits = sum(1 for char in text if char.isdigit())
+    return max(
+        len(text) / 4.0,
+        words * 1.3,
+        words * 0.9 + symbols + digits,
+    )
 
 
 def split_sentences(text: str) -> list[str]:
