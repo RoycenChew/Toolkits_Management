@@ -113,6 +113,23 @@ test fails for each. Two attempts initially missed:
   the BOM and CRLF damage in 0.2.0 and has the same cause - generating code
   through a shell.
 
+**And the count test itself was environment-dependent, which CI caught.**
+`with-backends` passed; both `stdlib-only` jobs failed with *"338 tests are
+collected, but README.md claims 369"*. Modules that open with
+`pytest.importorskip` are not collected at all on a bare install, so the suite
+legitimately collects 338 there and 369 with backends - asserting one number in
+both environments is asserting something false in one of them. The check now
+skips unless every optional backend is importable, and it gates on **actually
+importing** rather than `find_spec`, because a module that exists and raises on
+import would otherwise pass the gate and run the check in an environment where
+it cannot hold. Verified both ways: passes with backends, skips with a named
+reason without them.
+
+That failure is worth recording for what it says about the audit: a test
+written to stop documentation lying was itself asserting something untrue in
+one of the two environments CI runs. The structural guard caught it in eight
+minutes, which is the argument for having one.
+
 **Known friction, accepted deliberately.** The test count is now asserted
 exactly, in four documents, so adding a single test requires updating all four.
 That is annoying and it is the only version that is actually true; the

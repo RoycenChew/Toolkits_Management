@@ -23,6 +23,8 @@ Run standalone: python toolkit/tests/test_packaging.py
 from __future__ import annotations
 
 import ast
+import importlib
+import importlib.util
 import json
 import os
 import re
@@ -30,6 +32,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _TOOLKIT = os.path.dirname(_HERE)
@@ -780,13 +784,44 @@ def test_the_readme_does_not_claim_a_stale_unit_count():
     )
 
 
+OPTIONAL_BACKENDS = ("pdfplumber", "docling", "fastembed", "bm25s", "lancedb", "litellm")
+
+
+def _importable(name: str) -> bool:
+    """Can this backend actually be imported?
+
+    `find_spec` is not enough: it reports a module that exists but raises on
+    import, which is how a broken install would make the check below run in an
+    environment it cannot be true in.
+    """
+    try:
+        importlib.import_module(name)
+    except Exception:  # noqa: BLE001 - absent or broken, both mean "not usable"
+        return False
+    return True
+
+
 def test_no_document_claims_a_stale_test_count():
     """Test counts appear in four documents and rot silently.
 
     The audit's own first pass missed `| **Tests** | 273 passing |` because it
     searched for "N tests" and that row says "N passing" - which is why this
     checks both spellings, in every document that carries one.
+
+    Only meaningful with every optional backend installed. Modules that open
+    with `pytest.importorskip` are not collected at all on a bare install, so
+    the suite legitimately collects 338 there and 369 with backends; asserting
+    one number in both environments is asserting something false in one of
+    them. The documents quote the full-suite figure, so this check belongs to
+    the environment that can produce it - which is why the first version of
+    this test passed locally and failed the stdlib-only CI job.
     """
+    absent = [name for name in OPTIONAL_BACKENDS if not _importable(name)]
+    if absent:
+        pytest.skip(
+            "counts the full suite; these backends are absent: " + ", ".join(absent)
+        )
+
     collected = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "--collect-only"],
         capture_output=True,
