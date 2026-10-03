@@ -234,6 +234,7 @@ class PdfPlumberSource:
 
         spans: list[TextSpan] = []
         page_sizes: dict[int, tuple[float, float]] = {}
+        rotated_glyphs = 0
         with open(path, "rb") as handle:
             raw = handle.read()
 
@@ -253,7 +254,26 @@ class PdfPlumberSource:
                         + " pages",
                     )
                 page_sizes[page_number] = (float(page.width), float(page.height))
-                words = page.extract_words(
+                # Rotated glyphs are a SEPARATE text flow, not noise. Reading
+                # order is recovered by sorting spans by position, which is only
+                # meaningful within one orientation: a vertical stamp down the
+                # left margin has no common reading order with the horizontal
+                # lines beside it, so mixing them interleaves its characters
+                # into words. Every arXiv PDF carries such a stamp, and it was
+                # corrupting body text ("an tc abelian surface", "routinely extc
+                # ceeding") and displacing a line of one abstract entirely.
+                #
+                # `doc_layout` has no notion of orientation, so the honest thing
+                # is to exclude rotated text and report how much was excluded,
+                # rather than silently weaving it into the prose. See
+                # `rotated_glyphs_excluded` in this document's metadata.
+                upright_page = page.filter(
+                    lambda obj: obj.get("upright", True)
+                )
+                rotated_glyphs += sum(
+                    1 for ch in page.chars if not ch.get("upright", True)
+                )
+                words = upright_page.extract_words(
                     extra_attrs=["size", "fontname"],
                     use_text_flow=False,
                     x_tolerance_ratio=self._x_tolerance_ratio,
@@ -316,6 +336,11 @@ class PdfPlumberSource:
                 "body_font_size": result.body_font_size,
                 "columns_per_page": result.columns_per_page,
                 "spans_deduplicated": result.spans_deduplicated,
+                # Non-zero means text was excluded: rotated stamps, margin
+                # annotations, or a landscape page whose whole body is rotated.
+                # A large count relative to the document's size means real
+                # content was dropped and this is the wrong source for it.
+                "rotated_glyphs_excluded": rotated_glyphs,
             },
         )
 

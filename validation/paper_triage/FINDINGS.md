@@ -379,3 +379,72 @@ snippets should have been drawn from the extracted text once, then frozen.
 every cached parse was stale glued text and the first re-measurement silently
 used it. The key now includes `WORD_GAP_RATIO` and the inner source's class
 name. Any cache over a parser has to version the parser.
+
+---
+
+# F10 fixed (2026-10-03): rotated text excluded as a separate flow
+
+`PdfPlumberSource` now filters to upright glyphs before extracting words, and
+reports how many were excluded in
+`Document.metadata["rotated_glyphs_excluded"]`. Corpus re-parsed from scratch.
+
+| Metric | Original | After F1+F2 | After F10 |
+|---|---|---|---|
+| Documents ingested | 49/49, 0 fail | 49/49, 0 fail | 49/49, 0 fail |
+| Chunks indexed | 2626 | 2784 | 2780 |
+| Chunk bboxes verified | 18/20 | 20/20 | **20/20** |
+| `hit_rate@5` | 0.3750 | 0.6250 | **0.7917** |
+| `hit_rate@10` | 0.4167 | 0.6667 | **0.7917** |
+| `ndcg@10` | 0.3347 | 0.5628 | **0.6390** |
+| `map` | 0.3031 | 0.5205 | **0.5878** |
+| `mrr` | 0.3090 | 0.5399 | **0.5812** |
+| `cited_relevant` | 0.4167 | 0.6667 | **0.7917** |
+| `overall_correct` | 0.3846 | 0.6154 | **0.7308** |
+| Golden snippets in no chunk | 13/24 | 7/24 | **3/24** |
+| Ablation cases measurable | n=11 | n=17 | **n=21** |
+
+**`hit_rate@10` 0.4167 -> 0.7917, a 90% relative improvement; `ndcg@10` +91%.**
+Both came entirely from extraction correctness. No retrieval, ranking or
+chunking code was changed at any point.
+
+All three remaining unmatched snippets (`q08`, `q16`, `q17`) are confirmed F11
+cases - my golden set drew them from arXiv metadata abstracts whose wording
+differs from the PDF body. No toolkit defect remains behind them.
+
+## The ablation has now saturated, and that is the finding
+
+recall@10: **lexical 1.0000**, dense 0.8095, RRF 0.9286 (n=21).
+
+Lexical retrieval is now perfect on this metric, which means the experiment can
+no longer say anything about fusion. Ground truth is *a chunk containing the
+expected snippet verbatim*; BM25 is being scored on exactly its own task, and
+once it misses nothing, RRF can only dilute it by blending in a weaker list.
+That is arithmetic, not evidence.
+
+So `hybrid_ranker` stays **NOT PROVEN**, and the honest conclusion is that this
+project cannot settle it. A fair test needs semantic relevance judgements -
+queries whose answers are paraphrases rather than quotations - which is a
+different corpus and a different golden set.
+
+## `dag` fan-out timing: no reliable speedup, as documented
+
+Three comparable measurements of fan-out versus sequential ingest: 201.8s vs
+183.8s, 189.5s vs 236.4s, and 286.9s vs a cold-cache 1370.4s (not comparable).
+The first two straddle zero. The conclusion is the one `dag`'s README already
+states: the work is CPU-bound in parsing and embedding, so threads do not help,
+and run-to-run variance exceeds any effect. Document coverage was identical to
+sequential in every run - 49 distinct doc_ids, 0 failures.
+
+## Scorecard after three fixes
+
+| Component | Verdict | Change |
+|---|---|---|
+| `adapters` | **USED SUCCESSFULLY** | was NEEDS IMPROVEMENT; F1 and F10 fixed, 0 ingest failures on 212 MB |
+| `doc_layout` | **USED SUCCESSFULLY** | 20/20 provenance; orientation limit now documented |
+| `durable_steps` | **USED SUCCESSFULLY** | unchanged; worked as documented throughout |
+| `dag`, `graph`, `core` | **USED SUCCESSFULLY** | unchanged |
+| `pipelines` | **NEEDS IMPROVEMENT** | F2 fixed; F6, F7, F9 open |
+| `chunking` | **NEEDS IMPROVEMENT** | F3 open: 35% of chunks over a 512-token budget |
+| `evaluation` | **NEEDS IMPROVEMENT** | F5, F8 open |
+| `hybrid_ranker` | **NOT PROVEN** | metric saturated; needs a different experiment |
+| `guardrails` and 5 others | **NOT EXERCISED** | no LLM in this run |

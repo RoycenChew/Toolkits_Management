@@ -38,6 +38,36 @@ reached it yet.
 
 ---
 
+## 0.4.1 - 2026-10-03
+### 0.4.1 - 2026-10-03
+
+- **Rotated text is excluded as a separate flow (F10).** Every arXiv PDF carries
+  a rotated identifier down its left edge. `extract_words` returned it as
+  reversed fragments positioned in the margin, and `doc_layout` - which has no
+  notion of orientation - interleaved them into body lines, producing
+  `an tc abelian surface` and `routinely extc ceeding` and displacing an entire
+  line of one abstract. Reading order is recovered by sorting spans on position,
+  which is only meaningful within one orientation, so rotated text cannot share
+  the flow. `PdfPlumberSource` now filters to upright glyphs and reports the
+  count in `Document.metadata["rotated_glyphs_excluded"]` - excluding content
+  silently would be worse than the defect, and that count is how a caller
+  notices a landscape page has lost its body. `doc_layout`'s limitations and
+  registry entry now say so.
+- Cumulative effect of the three extraction fixes on the real corpus, with no
+  change to retrieval, ranking or chunking: `hit_rate@10` **0.4167 -> 0.7917**
+  (+90% relative), `ndcg@10` 0.3347 -> 0.6390, `overall_correct` 0.3846 ->
+  0.7308, provenance 18/20 -> 20/20, golden snippets matching no chunk 13 -> 3.
+- The validation parse cache now keys on a hash of the parser's own source
+  rather than on a list of its settings. Naming `WORD_GAP_RATIO` in the key
+  caught the first behaviour change and missed the second; hashing the code
+  catches both without having to remember to.
+- `hybrid_ranker` remains **NOT PROVEN**, now because the experiment saturated:
+  lexical recall@10 reached 1.000 against verbatim-snippet ground truth, so
+  fusion can only dilute it. That is arithmetic, not evidence. Settling it needs
+  semantic relevance judgements.
+
+---
+
 ## 0.4.0 - 2026-10-03
 
 First release driven by real-world use rather than by authored tests. The toolkit was

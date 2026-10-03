@@ -27,6 +27,25 @@ from toolkit.core import Document, ScreeningLimits
 from toolkit.doc_layout import WORD_GAP_RATIO
 
 
+def _parser_fingerprint() -> str:
+    """A digest of the code that turns a PDF into blocks.
+
+    Covers the extraction adapter and the layout component, since either one
+    changes what a cached `Document` would contain.
+    """
+    import toolkit.adapters.sources as sources
+    import toolkit.doc_layout.component as layout
+
+    digest = hashlib.sha256()
+    for module in (sources, layout):
+        source_file = getattr(module, "__file__", None)
+        if not source_file or not os.path.exists(source_file):
+            return "unknown"
+        with open(source_file, "rb") as fh:
+            digest.update(fh.read())
+    return digest.hexdigest()[:12]
+
+
 class CachedDocumentSource:
     """Wraps a `DocumentSource`, persisting parsed `Document` objects.
 
@@ -45,17 +64,24 @@ class CachedDocumentSource:
         return bool(self.inner.supports(path))
 
     def _key(self, path: str) -> str:
-        """Key on the file *and* on the parser's behaviour.
+        """Key on the file *and* on the parser's own code.
 
-        Keying on path+size+mtime alone was wrong: fixing the word-gap ratio
-        changed what the parser produces, and every cached entry silently
-        remained the old glued text. Any setting that alters the output has to
-        be part of the key.
+        Keying on path+size+mtime alone was wrong twice over. Fixing the
+        word-gap ratio changed what the parser produces and every cached entry
+        silently stayed the old glued text; naming the ratio in the key fixed
+        that one case but not the next change, which was excluding rotated
+        glyphs and altered the output without touching any named setting.
+
+        So hash the parser's source instead of enumerating its knobs. Any edit
+        to the extraction or layout code invalidates the cache automatically,
+        which is the only version of this that stays correct without being
+        remembered.
         """
         stat = os.stat(path)
         raw = (
             f"{os.path.abspath(path)}|{stat.st_size}|{int(stat.st_mtime)}"
             f"|gap={WORD_GAP_RATIO}|{type(self.inner).__name__}"
+            f"|parser={_parser_fingerprint()}"
         )
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
         return os.path.join(self.cache_dir, digest + ".pickle")

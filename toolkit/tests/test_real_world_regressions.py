@@ -183,3 +183,74 @@ def test_f2_a_reingested_document_is_answerable(tmp_path) -> None:
 
     assert answer.citations, "a reingested corpus produced no citations"
     assert answer.chunks
+
+
+# --------------------------------------------------------------------------- #
+# F10 - rotated marginal text interleaved into body text
+# --------------------------------------------------------------------------- #
+def _stamped_pdf(directory) -> str:
+    from make_corpus import rotated_margin_stamp
+
+    return rotated_margin_stamp(os.path.join(str(directory), "rotated_margin_stamp.pdf"))
+
+
+def test_f10_a_rotated_margin_stamp_does_not_corrupt_body_text(tmp_path) -> None:
+    """Every arXiv PDF carries a rotated identifier down its left edge.
+
+    Reading order is recovered by sorting spans on position, which only means
+    something within one orientation: a vertical stamp has no common reading
+    order with the lines beside it. Including it interleaved its characters into
+    words on real papers ("an tc abelian surface", "routinely extc ceeding") and
+    dropped an entire line of one abstract.
+    """
+    path = _stamped_pdf(tmp_path)
+    document = PdfPlumberSource().load(path)
+    text = " ".join(block.text for block in document.blocks)
+
+    assert "essential in isogeny-based cryptography. Despite this" in text, text[:300]
+    assert "efficient algorithm" in text, "a body line went missing: " + text[:300]
+    for fragment in ("tcO", "6202", "viXra", "htam"):
+        assert fragment not in text, "stamp fragment leaked into body text: " + fragment
+
+
+def test_f10_the_fixture_really_is_adversarial(tmp_path) -> None:
+    """The guard above must be able to fail.
+
+    Asserts the raw extractor still reports the stamp in the left margin, so the
+    test is proving that the source excludes it rather than that the fixture
+    never contained it. These are the exact reversed fragments observed on real
+    arXiv papers.
+    """
+    path = _stamped_pdf(tmp_path)
+    with pdfplumber.open(path) as pdf:
+        page = pdf.pages[0]
+        rotated = [c for c in page.chars if not c.get("upright", True)]
+        margin = [
+            w["text"]
+            for w in page.extract_words(x_tolerance_ratio=0.15)
+            if w["x0"] < 45
+        ]
+
+    assert rotated, "fixture has no rotated glyphs at all"
+    assert any("tcO" in w or "viXra" in w for w in margin), margin
+
+
+def test_f10_excluded_rotated_text_is_counted_not_hidden(tmp_path) -> None:
+    """Dropping content silently would be worse than the defect.
+
+    The count is how a caller notices that a landscape page - whose whole body is
+    rotated - lost its text and needs a different source.
+    """
+    path = _stamped_pdf(tmp_path)
+    document = PdfPlumberSource().load(path)
+
+    assert document.metadata["rotated_glyphs_excluded"] > 0
+    assert document.metadata["rotated_glyphs_excluded"] == 41
+
+
+def test_f10_a_document_without_rotation_reports_zero(tmp_path) -> None:
+    """The counter must mean something: no rotation, no exclusions."""
+    path = _tight_pdf(tmp_path)
+    document = PdfPlumberSource().load(path)
+
+    assert document.metadata["rotated_glyphs_excluded"] == 0

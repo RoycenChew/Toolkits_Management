@@ -396,7 +396,8 @@
       "limitations": [
         "table structure not reconstructed",
         "no OCR or layout model",
-        "reading order is page-number order across pages"
+        "reading order is page-number order across pages",
+        "no text orientation: rotated text is a separate reading flow and is excluded by `PdfPlumberSource`, which reports the count as `rotated_glyphs_excluded`; a landscape page loses its body"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_doc_layout",

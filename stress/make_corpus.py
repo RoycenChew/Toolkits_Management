@@ -34,6 +34,7 @@ class Page:
     def __init__(self) -> None:
         self.items: list[tuple[float, float, float, str, str]] = []
         self.runs: list[tuple[float, float, float, str, list[str], float]] = []
+        self.rotations: list[tuple[float, float, float, str, str]] = []
 
     def text(self, x: float, y: float, body: str, size: float = 11, font: str = "regular") -> Page:
         self.items.append((x, y, size, font, body))
@@ -66,6 +67,18 @@ class Page:
         self.runs.append((x, y, size, font, list(words), gap))
         return self
 
+    def rotated_text(
+        self, x: float, y: float, body: str, size: float = 9, font: str = "regular"
+    ) -> Page:
+        """Place text rotated 90 degrees, the way arXiv stamps its PDFs.
+
+        Uses a text matrix (`0 1 -1 0 x y Tm`) rather than `Td`, so the glyphs
+        are genuinely non-upright and pdfplumber reports `upright: False` - which
+        is the property the fix keys on.
+        """
+        self.rotations.append((x, y, size, font, body))
+        return self
+
     def column(
         self,
         x: float,
@@ -86,6 +99,14 @@ class Page:
             parts.append(
                 b"BT /" + key + b" " + str(size).encode() + b" Tf "
                 + str(x).encode() + b" " + str(y).encode() + b" Td ("
+                + _escape(body) + b") Tj ET\n"
+            )
+        for x, y, size, font, body in self.rotations:
+            key = {"regular": b"F1", "bold": b"F2", "italic": b"F3"}[font]
+            # 0 1 -1 0 => rotate 90 degrees counter-clockwise.
+            parts.append(
+                b"BT /" + key + b" " + str(size).encode() + b" Tf 0 1 -1 0 "
+                + str(x).encode() + b" " + str(y).encode() + b" Tm ("
                 + _escape(body) + b") Tj ET\n"
             )
         for x, y, size, font, words, gap in self.runs:
@@ -327,6 +348,33 @@ def no_text_layer(path: str) -> str:
     return write_pdf(path, [Page(), Page()])
 
 
+def rotated_margin_stamp(path: str) -> str:
+    """Targets: orientation handling in `PdfPlumberSource`.
+
+    Horizontal body text with a rotated identifier down the left margin, which
+    is exactly how arXiv stamps every paper it serves. Reading order is
+    recovered by sorting spans on position, and that is only meaningful within
+    one orientation - a vertical stamp has no common reading order with the
+    lines beside it, so including it interleaves its characters into words. On
+    real papers this produced "an tc abelian surface" and "routinely extc
+    ceeding", and dropped a whole line of one abstract.
+    """
+    page = Page()
+    page.rotated_text(24, 300, "arXiv:2610.01924v1  [math.NT]  1 Oct 2026", 9)
+    page.text(72, 760, "Supersingularity Verification", 16, "bold")
+    page.column(
+        72,
+        730,
+        [
+            "Supersingular abelian surfaces are essential in isogeny-based",
+            "cryptography. Despite this, we have no efficient algorithm to",
+            "verify if a given abelian surface is supersingular.",
+        ],
+        size=11,
+    )
+    return write_pdf(path, [page])
+
+
 def tex_tight_spacing(path: str) -> str:
     """Targets: word-gap inference in `PdfPlumberSource`.
 
@@ -461,6 +509,7 @@ def build(directory: str | None = None) -> str:
     table_heavy(os.path.join(directory, "table_heavy.pdf"))
     no_text_layer(os.path.join(directory, "no_text_layer.pdf"))
     tex_tight_spacing(os.path.join(directory, "tex_tight_spacing.pdf"))
+    rotated_margin_stamp(os.path.join(directory, "rotated_margin_stamp.pdf"))
     unicode_mess(os.path.join(directory, "unicode_mess.md"))
     cjk_mixed(os.path.join(directory, "cjk_mixed.md"))
     injection(os.path.join(directory, "injection.md"))

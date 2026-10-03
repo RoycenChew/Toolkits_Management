@@ -1,0 +1,150 @@
+
+=== INGEST: 49 real PDFs ===
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could not get FontBBox from font descriptor because None cannot be parsed as 4 floats
+  seconds        : 1370.4
+  documents      : 49
+  chunks indexed : 2780 (kb.count=2780)
+  embedding calls: 2780
+  failures       : 0
+  status counts  : {'ingested': 49}
+
+=== PROVENANCE: re-opening PDFs to verify 20 chunk bboxes ===
+  [MINOR   ] pipelines: no public accessor for indexed chunks; auditing what was indexed requires reaching into the private `_chunks` dict
+  checked        : 20
+  verified       : 20
+  out of bounds  : 0
+  text mismatch  : 0
+  chunks w/o bbox: 0
+
+=== TOKENS: heuristic vs real tokenizer (budget 512) ===
+  chunks            : 2780
+  over budget       : 972 (35.0%)
+  worst overshoot   : 2.65x budget
+  real/est  median  : 1.03
+  real/est  p95     : 1.63
+  [MAJOR   ] corpus-reality: 29 chunk(s) contain a tokenizer special-token literal such as '<|endoftext|>'; tiktoken refuses to encode these by default and raised ValueError mid-run. Any component that counts tokens with a real tokenizer must pass disallowed_special=()
+  chunks w/ '<|'    : 29
+  [MAJOR   ] chunking: 972/2780 chunks (35%) exceed the 512-token budget against a real tokenizer, worst 2.65x; the heuristic counter is documented but this is its real cost
+
+=== EVAL: pre-registered golden set ===
+  cases: 26
+  cases                        26.0000
+  cited_relevant               0.7917
+  false_refusal                0.0000
+  hallucinated_citation        0.0000
+  hit_rate@1                   0.4583
+  hit_rate@10                  0.7917
+  hit_rate@5                   0.7917
+  map                          0.5878
+  mean_seconds                 0.1937
+  mrr                          0.5812
+  ndcg@1                       0.4583
+  ndcg@10                      0.6390
+  ndcg@5                       0.6390
+  overall_correct              0.7308
+  precision@1                  0.4583
+  precision@10                 0.0935
+  precision@5                  0.1833
+  refusal_accuracy             0.0000
+  unanswerable_cases           2.0000
+  cases retrieving nothing relevant: 7/26
+    - q08-keyword-false-positive: How can keyword-matching benchmarks mislead about tool use in small mo
+    - q11-3d-generation-latents: What does high-resolution 3D generation increasingly rely on?
+    - q15-prime-geodesic: What is improved in the prime geodesic theorem?
+    - q16-avsd-dataset: What is the AVSD-Scenes dataset?
+    - q17-transformer-depth-cost: What is the cost of increasing the depth of transformer models?
+    - q25-unanswerable-gallium: What is the melting point of gallium nitride in degrees Celsius?
+    - q26-unanswerable-k8s: How do I configure a Kubernetes ingress controller with TLS terminatio
+
+=== ABLATION: lexical-only vs dense-only vs RRF ===
+  note: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  [MINOR   ] evaluation: EvalConfig exposes no fusion weights, so the fusion claim cannot be ablated through EvalRunner; measured against hybrid_ranker directly
+  recall@10 lexical  1.0000  (n=21)
+  recall@10 dense    0.8095  (n=21)
+  recall@10 rrf      0.9286  (n=21)
+  cases whose expected snippet is in NO chunk: 3
+    - q08-keyword-false-positive
+    - q16-avsd-dataset
+    - q17-transformer-depth-cost
+  [MAJOR   ] chunking/golden-set: 3 golden snippets appear in no indexed chunk - either extraction lost the text or the snippet was mis-transcribed
+  [MAJOR   ] hybrid_ranker: RRF (0.929) did not beat the better single retriever (lexical 1.000, dense 0.810)
+
+=== DAG FAN-OUT: ingest 1 node per PDF ===
+  seconds   : 286.9
+  status    : RunStatus.COMPLETED
+  completed : 49  failed: 0  skipped: 0
+  chunks    : 2780
+  distinct doc_ids: 49 (expected 49)
+
+6 finding(s) -> C:\Users\Chew MIng Yau\OneDrive\Desktop\Component Based Development\validation\paper_triage\results\report_all.json

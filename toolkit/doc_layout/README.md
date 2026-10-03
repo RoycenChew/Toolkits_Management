@@ -131,6 +131,15 @@ for block in result.blocks:
 
 ## Limitations
 
+- **No text orientation.** Every span is assumed horizontal. Reading order is
+  recovered by sorting on position, which is only meaningful within one
+  orientation, so rotated text cannot be placed in the same flow. Every arXiv
+  PDF carries a rotated identifier down its left edge, and including it
+  interleaved its characters into body words (`an tc abelian surface`) and
+  displaced a whole line of one abstract. `PdfPlumberSource` therefore excludes
+  non-upright glyphs and reports how many in
+  `Document.metadata["rotated_glyphs_excluded"]`. A landscape page, whose entire
+  body is rotated, will lose its text - check that count.
 - **Tables are not reconstructed.** Table text comes through as paragraphs. Table
   *structure* recovery genuinely needs a model (TableFormer, Surya) — use Docling or
   Marker for that and feed non-table regions here.
