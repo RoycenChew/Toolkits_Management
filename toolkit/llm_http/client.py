@@ -26,6 +26,7 @@ What this deliberately does **not** do:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.error
 import urllib.request
@@ -114,6 +115,7 @@ class HttpLLM:
         max_output_tokens: int = 4096,
         transport: Transport | None = None,
         prices: PriceBook | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> None:
         self.provider = provider if provider is not None else resolve()
         self.timeout = timeout
@@ -124,10 +126,38 @@ class HttpLLM:
         # and the governor's cost ceiling starts meaning something - see
         # `provider.pricing` for why the toolkit ships no numbers of its own.
         self.prices = prices if prices is not None else PriceBook()
+        # Every provider has a knob the port does not model, and `ports.LLM`
+        # should not grow one argument per provider - the next one calls it
+        # something else. Measured case: DeepSeek's
+        # `thinking={"type": "disabled"}` cut output tokens by 4.4x on an
+        # identical prompt, because `deepseek-flash` is a reasoning model.
+        # Keys the port owns are refused, so a stray `model` cannot silently
+        # send a different request than the caller asked for.
+        self.extra_body = dict(extra_body or {})
+
+    _RESERVED_BODY_KEYS = frozenset(
+        {"model", "messages", "temperature", "max_tokens", "system"}
+    )
 
     @property
     def model_version(self) -> str:
-        return "%s:%s" % (self.provider.style.value, self.provider.model)
+        """Identity for a cache key, including the extra parameters.
+
+        Two runs that differ only in `thinking` are different requests and must
+        not share cached answers - which is the TK-5 defect in a new field.
+        """
+        base = "%s:%s" % (self.provider.style.value, self.provider.model)
+        if not self.extra_body:
+            return base
+        stamp = json.dumps(self.extra_body, sort_keys=True, default=str)
+        return base + ":" + hashlib.sha256(stamp.encode("utf-8")).hexdigest()[:12]
+
+    def _with_extra(self, body: dict) -> dict:
+        for key, value in self.extra_body.items():
+            if key in self._RESERVED_BODY_KEYS:
+                continue
+            body[key] = value
+        return body
 
     def __repr__(self) -> str:
         # Delegates to Provider.__repr__, which redacts the key.
@@ -168,7 +198,7 @@ class HttpLLM:
         return (
             self.provider.endpoint + "/chat/completions",
             {"Authorization": "Bearer " + self.provider.api_key},
-            {
+            self._with_extra({
                 "model": self.provider.model,
                 "messages": [
                     {"role": m.role, "content": self._openai_content(m)}
@@ -176,7 +206,7 @@ class HttpLLM:
                 ],
                 "temperature": temperature,
                 "max_tokens": limit,
-            },
+            }),
         )
 
     @staticmethod
@@ -240,7 +270,7 @@ class HttpLLM:
                 "x-api-key": self.provider.api_key,
                 "anthropic-version": "2023-06-01",
             },
-            body,
+            self._with_extra(body),
         )
 
     @staticmethod

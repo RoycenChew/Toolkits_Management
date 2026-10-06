@@ -284,3 +284,76 @@ def test_the_guard_can_be_switched_off_for_a_genuinely_free_model() -> None:
     for _ in range(10):
         governed.complete([Message("user", "x")])
     assert governed.state.calls == 10
+
+# --------------------------------------------------------------------------
+# Provider-specific request parameters
+# --------------------------------------------------------------------------
+
+
+def test_extra_body_parameters_reach_the_request() -> None:
+    """Every provider has a knob the port does not model.
+
+    DeepSeek's `thinking` is the measured case: `deepseek-flash` is a reasoning
+    model, and `{"type": "disabled"}` cut output tokens by 4.4x and latency by
+    1.7x on an identical prompt. `ports.LLM` should not grow a `thinking`
+    argument - the next provider calls it something else - but refusing to pass
+    anything through means the only way to use it is to stop using the port.
+    """
+    transport = _transport(_ok())
+    llm = HttpLLM(
+        _deepseek(),
+        transport=transport,
+        extra_body={"thinking": {"type": "disabled"}},
+    )
+    llm.complete([Message("user", "hi")])
+
+    body = transport.seen["body"]
+    assert body["thinking"] == {"type": "disabled"}
+    # And it did not disturb anything the port does model.
+    assert body["model"] == "deepseek-flash"
+    assert body["messages"] == [{"role": "user", "content": "hi"}]
+    assert body["temperature"] == 0.0
+
+
+def test_extra_body_cannot_overwrite_the_fields_the_port_owns() -> None:
+    """Otherwise a stray key silently changes the model or drops the messages,
+    and the call that results is not the one the caller asked for."""
+    transport = _transport(_ok())
+    llm = HttpLLM(
+        _deepseek(),
+        transport=transport,
+        extra_body={"model": "something-else", "messages": [], "thinking": {"type": "disabled"}},
+    )
+    llm.complete([Message("user", "hi")])
+
+    body = transport.seen["body"]
+    assert body["model"] == "deepseek-flash"
+    assert body["messages"] == [{"role": "user", "content": "hi"}]
+    assert body["thinking"] == {"type": "disabled"}
+
+
+def test_extra_body_reaches_the_anthropic_shape_too() -> None:
+    anthropic = resolve(env_file=None, environ={"ANTHROPIC_API_KEY": SECRET})
+    transport = _transport({
+        "content": [{"type": "text", "text": "ok"}],
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+        "model": "claude-opus-5",
+        "stop_reason": "end_turn",
+    })
+    HttpLLM(anthropic, transport=transport, extra_body={"top_k": 5}).complete(
+        [Message("user", "hi")]
+    )
+    assert transport.seen["body"]["top_k"] == 5
+
+
+def test_the_model_version_records_the_extra_parameters() -> None:
+    """`CachedLLM` keys on `model_version`. Two runs that differ only in
+    `thinking` are different requests and must not share cached answers - the
+    TK-5 defect, in a new field."""
+    plain = HttpLLM(_deepseek(), transport=_transport(_ok()))
+    thinking_off = HttpLLM(
+        _deepseek(),
+        transport=_transport(_ok()),
+        extra_body={"thinking": {"type": "disabled"}},
+    )
+    assert plain.model_version != thinking_off.model_version
