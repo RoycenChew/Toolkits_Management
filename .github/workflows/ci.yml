@@ -30,8 +30,10 @@ jobs:
           python - <<'PY'
           import sys
           import toolkit, toolkit.pipelines, toolkit.extraction, toolkit.evaluation
+          import toolkit.extraction_eval, toolkit.adapters, toolkit.entity_resolution
           leaked = [m for m in ("litellm", "lancedb", "fastembed", "docling",
-                                "pdfplumber", "bm25s", "sentence_transformers")
+                                "pdfplumber", "bm25s", "sentence_transformers",
+                                "pypdfium2", "PIL")
                     if m in sys.modules]
           assert not leaked, "importing toolkit pulled in: " + ", ".join(leaked)
           print("base import is clean")
