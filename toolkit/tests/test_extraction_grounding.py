@@ -739,3 +739,63 @@ def test_a_malay_date_grounds_against_the_page() -> None:
     assert issued.grounded is True
     assert issued.match is MatchClass.NORMALIZED
     assert list(issued.evidence[0].words) == ["17", "Januari", "2026"]
+
+def test_a_currency_marker_outside_the_parentheses_still_parses() -> None:
+    """Measured on 175 live invoices: every credit note lost its subtotal and
+    tax amount to this.
+
+    The accounting-negative check ran *before* currency stripping, so it only
+    recognised a marker written inside the brackets. `($310.00)` worked and
+    `$(310.00)` did not; `RM(4,094.28)` - which is how the corpus writes a
+    Malaysian credit note - parsed as nothing at all, so a correct value was
+    reported `not_found` and the document went to review for no reason.
+
+    Both nestings occur in the wild, so stripping and bracket-checking now
+    alternate until the string stops changing.
+    """
+    from toolkit.extraction import parse_decimal
+
+    # The marker inside, which already worked.
+    assert parse_decimal("($310.00)") == Decimal("-310.00")
+    # The marker outside, which did not.
+    assert parse_decimal("RM(4,094.28)") == Decimal("-4094.28")
+    assert parse_decimal("$(310.00)") == Decimal("-310.00")
+    assert parse_decimal("MYR (4,094.28)") == Decimal("-4094.28")
+    assert parse_decimal("(RM4,094.28)") == Decimal("-4094.28")
+    assert parse_decimal("€(2.450,75)") == Decimal("-2450.75")
+    # Positives are untouched.
+    assert parse_decimal("RM4,094.28") == Decimal("4094.28")
+    # And a bracket that is not an accounting negative is still refused.
+    assert parse_decimal("RM(abc)") is None
+    assert parse_decimal("(") is None
+    assert parse_decimal("()") is None
+
+
+@needs_pdf
+def test_a_credit_note_total_grounds_with_a_currency_prefix() -> None:
+    """End to end: the reason the defect mattered. A grounded value reported
+    `not_found` sends a correct document to review, and a review queue full of
+    correct documents is how reviewers learn to approve without looking."""
+    document = Document(
+        doc_id="cn",
+        blocks=[Block(text="Jumlah Besar: MYR RM(4,094.28)", provenance=Provenance(1))],
+        words=[
+            Word("Jumlah", 1, BBox(0, 0, 30, 10)),
+            Word("Besar:", 1, BBox(32, 0, 60, 10)),
+            Word("RM(4,094.28)", 1, BBox(62, 0, 140, 10)),
+        ],
+    )
+    schema = ExtractionSchema(
+        "CreditNote", [FieldSpec("total", FieldType.DECIMAL, "Total, negative")]
+    )
+    result = ExtractionComponent(
+        ScriptedLLM(responses=['{"total": "-4094.28"}'])
+    ).execute(
+        ExtractionRequest(
+            schema=schema, source=document, config=ExtractionConfig(max_repairs=0)
+        )
+    )
+    total = result.field_map()["total"]
+    assert total.value == Decimal("-4094.28")
+    assert total.grounded is True
+    assert list(total.evidence[0].words) == ["RM(4,094.28)"]

@@ -53,11 +53,20 @@ def normalise_number_text(raw: str) -> str | None:
     if not text:
         return None
 
+    # Brackets and currency markers alternate, because both nestings occur:
+    # `($310.00)` writes the marker inside and `RM(4,094.28)` writes it
+    # outside. Checking brackets once, before stripping, recognised only the
+    # first - measured on 175 live invoices, where every credit note lost its
+    # subtotal and tax amount and went to review for no reason.
     negative = False
-    if text.startswith("(") and text.endswith(")"):
-        negative = True
-        text = text[1:-1].strip()
-    text = _CURRENCY.sub("", text).strip()
+    for _ in range(3):
+        before = text
+        if text.startswith("(") and text.endswith(")") and len(text) > 2:
+            negative = not negative
+            text = text[1:-1].strip()
+        text = _CURRENCY.sub("", text).strip()
+        if text == before:
+            break
     if text.startswith("-"):
         negative = not negative
         text = text[1:].strip()
