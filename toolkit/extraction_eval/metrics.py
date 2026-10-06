@@ -310,6 +310,15 @@ def compare_line_items(
         got = actual[candidates.pop(0)]
         matched += 1
         for column in columns:
+            if column not in want:
+                # The ground truth is silent about this column, so it is
+                # unmeasured rather than wrong. Comparing an absent expectation
+                # against an extracted value penalises the model for returning
+                # something nobody recorded - the "fires on correct work"
+                # failure, which ends with the metric switched off. An expected
+                # value of None is different: that is a recorded "the document
+                # does not state it", and it is compared.
+                continue
             compared[column] += 1
             if values_equal(want.get(column), got.get(column)):
                 correct[column] += 1

@@ -20,7 +20,7 @@ Scale: **1** absent · **2** prototype · **3** solid library · **4** productio
 | Dimension | Score | Evidence |
 |---|:--:|---|
 | **Architecture & modularity** | **4.5** | Ports/adapters with a *test-enforced* two-implementation rule. Only `adapters/` may import a vendor SDK, and CI asserts the base import stays clean. Components are independently copyable. This is better than most internal platforms. |
-| **Correctness discipline** | **4** | 516 tests asserting *properties*, not execution. Metrics hand-computed rather than checked against themselves. 12 real defects caught and recorded. |
+| **Correctness discipline** | **4** | 520 tests asserting *properties*, not execution. Metrics hand-computed rather than checked against themselves. 12 real defects caught and recorded. |
 | **Type safety** | **4** | `mypy` clean over 42 files. Contracts fully typed. |
 | **Honesty of documentation** | **5** | Every component documents its own limitations, and the measurements that killed a bad design are in the docstrings. Rare at any scale. |
 | **Testability** | **4** | Deterministic stdlib fakes for every port. Offline, reproducible, no API key. |
@@ -43,7 +43,7 @@ entire operational and security surface an enterprise deployment requires."*
 
 ## Resolved — correctness pass, 2026-10-01
 
-Three of the five blockers below are fixed, with 516 tests that reproduce each
+Three of the five blockers below are fixed, with 520 tests that reproduce each
 original bug before asserting the fix.
 
 | Was | Now |

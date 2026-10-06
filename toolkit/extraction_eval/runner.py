@@ -21,6 +21,7 @@ from typing import Any
 
 from ..core.models import Usage
 from .metrics import (
+    compare_line_items,
     field_accuracy,
     grounding_rate,
     line_item_scores,
@@ -154,15 +155,20 @@ class ExtractionEvalRunner:
         required = set(case.required())
         outcomes: list[FieldOutcome] = []
         rows = None
+        cells = None
 
         for path, expected in case.expected.items():
             if _is_table(expected):
                 actual_rows = value_at(result.data, path)
+                present = actual_rows if isinstance(actual_rows, Sequence) else []
                 rows = line_item_scores(
+                    expected, present,
+                    settings.description_keys, settings.amount_keys,
+                )
+                cells = compare_line_items(
                     expected,
-                    actual_rows if isinstance(actual_rows, Sequence) else [],
-                    settings.description_keys,
-                    settings.amount_keys,
+                    [r for r in present if isinstance(r, Mapping)],
+                    description_keys=settings.description_keys,
                 )
                 continue
             leaf = leaves.get(path)
@@ -190,6 +196,7 @@ class ExtractionEvalRunner:
             schema_valid=bool(result.valid),
             accepted=bool(self._accept(result)),
             line_items=rows,
+            line_item_cells=cells,
             attempts=int(getattr(result, "attempts", 1)),
             truncated=bool(getattr(result, "truncated", False)),
             input_tokens=usage.input_tokens,

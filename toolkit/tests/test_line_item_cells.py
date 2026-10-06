@@ -204,6 +204,30 @@ def test_a_cell_the_document_does_not_state_is_not_a_wrong_cell() -> None:
     assert result.cell_accuracy("quantity") == 1.0
 
 
+def test_a_column_the_ground_truth_omits_is_unmeasured_not_wrong() -> None:
+    """Found by a test on the harness's own golden set, which records only
+    description and amount. Comparing an absent expectation against an
+    extracted value marked every quantity wrong - penalising the model for
+    returning something nobody recorded. That is the "fires on correct work"
+    failure, and it ends with the metric switched off.
+
+    An expected value of None is different: that is a recorded "the document
+    does not state it", and it is compared.
+    """
+    expected = [{"description": "Item A", "amount": "10.00"}]
+    actual = [{"description": "Item A", "quantity": 3,
+               "unit_price": "3.33", "amount": "10.00"}]
+    result = compare_line_items(expected, actual)
+
+    assert result.any_cell_wrong is False
+    assert result.is_exact is True
+    assert result.cells_compared["quantity"] == 0
+    assert result.cell_accuracy("quantity") == 0.0, "nothing compared, not 100%"
+    assert result.cell_accuracy("amount") == 1.0
+    # The overall figure covers only what was actually compared.
+    assert result.cell_accuracy() == 1.0
+
+
 def test_a_cell_the_model_omitted_is_wrong() -> None:
     rows = _perfect()
     rows[0].pop("quantity")

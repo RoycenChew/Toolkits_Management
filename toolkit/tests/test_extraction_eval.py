@@ -81,6 +81,7 @@ def _schema() -> ExtractionSchema:
                 fields=[
                     FieldSpec("description", FieldType.STRING, "Item"),
                     FieldSpec("quantity", FieldType.INTEGER, "Units"),
+                    FieldSpec("unit_price", FieldType.DECIMAL, "Price per unit"),
                     FieldSpec("amount", FieldType.DECIMAL, "Line amount"),
                 ],
             ),
@@ -99,9 +100,14 @@ def _golden() -> ExtractionGolden:
                     "invoice_number": "INV-88213",
                     "issued": "2024-03-14",
                     "total": "35.00",
+                    # Every cell recorded, not just description and amount:
+                    # a column the ground truth omits is unmeasured, so a
+                    # golden set that leaves quantity out cannot report on it.
                     "line_items": [
-                        {"description": "Hex bolt stainless", "amount": "20.00"},
-                        {"description": "Washer flat", "amount": "15.00"},
+                        {"description": "Hex bolt stainless", "quantity": 2,
+                         "unit_price": "10.00", "amount": "20.00"},
+                        {"description": "Washer flat", "quantity": 3,
+                         "unit_price": "5.00", "amount": "15.00"},
                     ],
                 },
                 required_paths=["invoice_number", "total"],
@@ -114,7 +120,8 @@ def _golden() -> ExtractionGolden:
                     "issued": "2024-04-02",
                     "total": "10.00",
                     "line_items": [
-                        {"description": "Cable tie black", "amount": "10.00"}
+                        {"description": "Cable tie black", "quantity": 4,
+                         "unit_price": "2.50", "amount": "10.00"}
                     ],
                 },
                 required_paths=["invoice_number", "total"],
@@ -131,8 +138,10 @@ def _perfect_responses() -> list[str]:
                 "issued": "14 March 2024",
                 "total": "USD 35.00",
                 "line_items": [
-                    {"description": "Hex bolt stainless", "quantity": 2, "amount": "20.00"},
-                    {"description": "Washer flat", "quantity": 3, "amount": "15.00"},
+                    {"description": "Hex bolt stainless", "quantity": 2,
+                     "unit_price": "10.00", "amount": "20.00"},
+                    {"description": "Washer flat", "quantity": 3,
+                     "unit_price": "5.00", "amount": "15.00"},
                 ],
             }
         ),
@@ -142,7 +151,8 @@ def _perfect_responses() -> list[str]:
                 "issued": "02 April 2024",
                 "total": "MYR 10.00",
                 "line_items": [
-                    {"description": "Cable tie black", "quantity": 4, "amount": "10.00"}
+                    {"description": "Cable tie black", "quantity": 4,
+                     "unit_price": "2.50", "amount": "10.00"}
                 ],
             }
         ),
@@ -547,3 +557,56 @@ def test_a_missing_path_is_wrong_rather_than_absent() -> None:
     assert outcome.correct is False
     assert outcome.actual is None
     assert report.metrics["field_accuracy"] == 0.5
+
+def test_a_case_result_carries_the_per_cell_comparison() -> None:
+    """`LineItemScore` says whether the rows were found; the cells say whether
+    they were right. A report keeping only the first cannot answer "which
+    column is the model weakest on", which is the question that says what to
+    change in the prompt."""
+    report = _run(_perfect_responses())
+    case = report.cases[0]
+
+    assert case.line_item_cells is not None
+    assert case.line_item_cells.is_exact is True
+    assert case.line_item_cells.cell_accuracy("quantity") == 1.0
+    assert case.line_item_cells.cell_accuracy("amount") == 1.0
+    assert list(case.line_item_cells.wrong_cells) == []
+
+
+def test_a_wrong_quantity_shows_up_in_the_cell_comparison() -> None:
+    """The gap that motivated the change: row keys ignored quantity, so a
+    wrong one was invisible to every metric."""
+    responses = _perfect_responses()
+    data = json.loads(responses[0])
+    data["line_items"][0]["quantity"] = 99
+    responses[0] = json.dumps(data)
+
+    report = _run(responses)
+    cells = report.case_map()["inv-1"].line_item_cells
+
+    assert cells is not None
+    assert cells.matched_rows == cells.expected_rows, "the row is present"
+    assert cells.cell_accuracy("quantity") < 1.0
+    assert cells.any_cell_wrong is True
+    assert cells.is_exact is False
+    assert cells.wrong_cells[0].column == "quantity"
+    # Precision and recall are untouched, because the row was found.
+    assert report.metrics["line_item_recall"] == 1.0
+
+
+def test_the_cell_comparison_round_trips_through_json(tmp_path) -> None:
+    responses = _perfect_responses()
+    data = json.loads(responses[0])
+    data["line_items"][0]["amount"] = "99.00"
+    responses[0] = json.dumps(data)
+
+    report = _run(responses)
+    path = str(tmp_path / "report.json")
+    report.to_json(path)
+
+    revived = ExtractionEvalReport.from_json(path)
+    cells = revived.case_map()["inv-1"].line_item_cells
+    assert cells is not None
+    assert cells.any_cell_wrong is True
+    assert cells.wrong_cells[0].column == "amount"
+    assert cells.cell_accuracy("amount") < 1.0

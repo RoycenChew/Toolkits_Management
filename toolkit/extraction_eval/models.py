@@ -20,7 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .metrics import LineItemScore
+from .metrics import LineItemComparison, LineItemScore, WrongCell
 
 
 @dataclass
@@ -151,6 +151,13 @@ class ExtractionCaseResult:
     schema_valid: bool = True
     accepted: bool = True
     line_items: LineItemScore | None = None
+    line_item_cells: LineItemComparison | None = None
+    """Per-cell detail behind the row score.
+
+    `line_items` says whether the rows were found; this says whether each of
+    their cells was right, per column. A report keeping only the first cannot
+    answer "which column is the model weakest on", which is the question that
+    says what to change in the prompt."""
     attempts: int = 1
     truncated: bool = False
     input_tokens: int = 0
@@ -237,6 +244,7 @@ class ExtractionEvalReport:
 
 def _case_to_dict(case: ExtractionCaseResult) -> dict[str, Any]:
     rows = case.line_items
+    cells = case.line_item_cells
     return {
         "case_id": case.case_id,
         "schema_valid": case.schema_valid,
@@ -258,6 +266,22 @@ def _case_to_dict(case: ExtractionCaseResult) -> dict[str, Any]:
                 "matched": rows.matched,
             }
         ),
+        "line_item_cells": (
+            None
+            if cells is None
+            else {
+                "expected_rows": cells.expected_rows,
+                "extracted_rows": cells.extracted_rows,
+                "matched_rows": cells.matched_rows,
+                "cells_compared": dict(cells.cells_compared),
+                "cells_correct": dict(cells.cells_correct),
+                "wrong_cells": [
+                    {"row": c.row, "column": c.column,
+                     "expected": c.expected, "actual": c.actual}
+                    for c in cells.wrong_cells
+                ],
+            }
+        ),
         "outcomes": [
             {
                 "path": o.path,
@@ -275,12 +299,21 @@ def _case_to_dict(case: ExtractionCaseResult) -> dict[str, Any]:
 
 def _case_from_dict(raw: Mapping[str, Any]) -> ExtractionCaseResult:
     rows = raw.get("line_items")
+    cells = raw.get("line_item_cells")
     return ExtractionCaseResult(
         case_id=raw["case_id"],
         outcomes=[FieldOutcome(**o) for o in raw.get("outcomes", [])],
         schema_valid=bool(raw.get("schema_valid", True)),
         accepted=bool(raw.get("accepted", True)),
         line_items=None if rows is None else LineItemScore(**rows),
+        line_item_cells=None if cells is None else LineItemComparison(
+            expected_rows=int(cells["expected_rows"]),
+            extracted_rows=int(cells["extracted_rows"]),
+            matched_rows=int(cells["matched_rows"]),
+            wrong_cells=[WrongCell(**c) for c in cells.get("wrong_cells", [])],
+            cells_compared=dict(cells.get("cells_compared", {})),
+            cells_correct=dict(cells.get("cells_correct", {})),
+        ),
         attempts=int(raw.get("attempts", 1)),
         truncated=bool(raw.get("truncated", False)),
         input_tokens=int(raw.get("input_tokens", 0)),
