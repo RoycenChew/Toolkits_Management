@@ -9,10 +9,12 @@ valuable output.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
 import unicodedata
+from decimal import Decimal
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,10 +32,12 @@ from toolkit.core import AdapterError, BlockType, ScreeningRejected  # noqa: E40
 from toolkit.extraction import (  # noqa: E402
     DocumentSplitterComponent,
     ExtractionComponent,
+    ExtractionConfig,
     ExtractionRequest,
     ExtractionSchema,
     FieldSpec,
     FieldType,
+    MatchClass,
 )
 from toolkit.pipelines import AskConfig, KnowledgeBase  # noqa: E402
 
@@ -270,6 +274,92 @@ def probe_extraction_coercion(directory: str) -> None:
                    % (expected, got, [i.path for i in result.issues][:2]))
 
 
+def probe_grounding(directory: str) -> None:
+    """The Phase 0 probe, kept so the claims stay checkable.
+
+    Four measured defects, each confirmed broken before TK-4 and asserted here:
+    a fabricated number grounded by substring match, line items with no
+    evidence at all, money as float, and silent truncation.
+    """
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "toolkit", "tests"))
+    try:
+        from _invoice_pdf import invoice_pdf  # noqa: PLC0415
+    except ImportError as exc:
+        record("KNOWN", "extraction", "grounding probe",
+               "fixture unavailable: " + str(exc)[:50])
+        return
+
+    fixture = invoice_pdf()
+    doc = PdfPlumberSource().load(fixture.path)
+    schema = ExtractionSchema("Invoice", [
+        FieldSpec("invoice_number", FieldType.STRING, "The invoice reference"),
+        FieldSpec("issued", FieldType.DATE, "Date on the invoice"),
+        FieldSpec("total", FieldType.DECIMAL, "Total due"),
+        FieldSpec("line_items", FieldType.ARRAY, "Table rows", fields=[
+            FieldSpec("description", FieldType.STRING, "Item"),
+            FieldSpec("quantity", FieldType.INTEGER, "Units"),
+            FieldSpec("unit_price", FieldType.DECIMAL, "Price per unit"),
+            FieldSpec("amount", FieldType.DECIMAL, "Line amount"),
+        ]),
+    ])
+    rows = [
+        {"description": line["description"], "quantity": line["quantity"],
+         "unit_price": "{:,.2f}".format(line["unit_price"]),
+         "amount": "{:,.2f}".format(line["amount"])}
+        for line in fixture.lines
+    ]
+    rows[3]["quantity"] = 7  # not on the page; `7` sits inside INV-2026-0417
+    payload = json.dumps({
+        "invoice_number": fixture.invoice_number,
+        "issued": fixture.date_text,
+        "total": "MYR " + f"{fixture.total:,.2f}",
+        "line_items": rows,
+    })
+    result = ExtractionComponent(ScriptedLLM(responses=[payload])).execute(
+        ExtractionRequest(schema, doc, ExtractionConfig(max_repairs=0, date_order="DMY"))
+    )
+    leaves = result.leaf_map()
+
+    fabricated = leaves["line_items[3].quantity"]
+    record(
+        "PASS" if fabricated.match is MatchClass.NOT_FOUND else "FAIL",
+        "extraction", "no false numeric grounding",
+        "fabricated quantity 7 -> %s" % fabricated.match.value,
+    )
+
+    cells = [
+        leaf for path, leaf in leaves.items()
+        if path.startswith("line_items[") and leaf.evidence
+        and leaf.evidence[0].bbox is not None
+    ]
+    expected_cells = 4 * len(fixture.lines) - 1  # minus the fabricated one
+    record(
+        "PASS" if len(cells) == expected_cells else "FAIL",
+        "extraction", "line items grounded with cell boxes",
+        "%d of %d leaf cells carry their own box" % (len(cells), expected_cells),
+    )
+
+    total = result.field_map()["total"]
+    exact = isinstance(total.value, Decimal) and total.value == fixture.total
+    sums = sum((row["amount"] for row in result.data["line_items"]), Decimal("0"))
+    record(
+        "PASS" if exact and sums == fixture.subtotal else "FAIL",
+        "extraction", "decimal money does not drift",
+        "total=%r  rows sum to %s (expected %s)" % (total.value, sums, fixture.subtotal),
+    )
+
+    short = ExtractionComponent(ScriptedLLM(responses=[payload])).execute(
+        ExtractionRequest(schema, doc, ExtractionConfig(max_repairs=0, date_order="DMY",
+                                                        context_char_limit=300))
+    )
+    record(
+        "PASS" if short.truncated and short.warnings else "FAIL",
+        "extraction", "truncation is reported",
+        (short.warnings[0][:70] if short.warnings else "no warning emitted"),
+    )
+
+
 def probe_injection(directory: str) -> None:
     kb = KnowledgeBase(llm=ScriptedLLM(
         handler=lambda messages: (
@@ -359,6 +449,7 @@ def main() -> int:
         probe_wall_of_text,
         probe_splitter,
         probe_extraction_coercion,
+        probe_grounding,
         probe_injection,
         probe_near_duplicates,
     ):

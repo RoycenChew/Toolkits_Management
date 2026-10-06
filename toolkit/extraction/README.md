@@ -243,6 +243,12 @@ for segment in split.segments:
   `result.truncated` and a warning naming characters sent against characters
   available — but it is not repaired, because a repair round cannot recover text the
   model was never shown. For a 200-page contract, split or retrieve first.
+- **A single oversized block is sent whole**, so `context_char_limit` is not an
+  upper bound on one segment. The context builder keeps the first segment
+  whatever its length, because sending an empty document is worse, and nothing
+  is dropped - so `truncated` stays False while the prompt exceeds the limit.
+  A plain string source is always one segment. Found while building
+  `extraction_eval`, which tried to produce a truncated case from one.
 - Grounding answers "is this on the page", not "is this right". A value the model
   correctly summed or paraphrased is `not_found`, so `require_grounding` suits
   verbatim extraction and not derived fields. Whether a field is legitimately derived

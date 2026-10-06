@@ -38,6 +38,116 @@ reached it yet.
 
 ---
 
+## 0.9.0 - 2026-10-06
+
+Phase 0 of FDIP readiness. Extraction stops reporting fabricated values as
+found, money becomes exact, scans become readable, messages can carry images,
+and there is finally a harness that measures extraction rather than retrieval.
+
+474 tests, up from 368 at the 0.8.1 audit. One new unit, `extraction_eval`,
+making 21 of a cap of 25.
+
+### The defect that drove most of this
+
+A probe over a synthetic two-page, 30-row invoice reported a **quantity of 7 as
+`grounded=True` when it is nowhere on the page**. Grounding was substring
+matching over normalised block text, and `7` sits inside the invoice number
+`INV-2026-0417` and inside the unit price `7.25`. A grounding signal with false
+positives in it is not a weak signal, it is a misleading one: its whole purpose
+is to be the set a human checks first, and people learn to ignore a list that
+flags correct work and misses wrong work.
+
+Five more defects came out of the same probe, all now fixed and each with a
+test that failed before the fix:
+
+- array fields were never grounded at all, so 30 line items carried no evidence
+- money came back as `float`, so thirty amounts did not sum to the stated
+  subtotal
+- `_validate_value` returned only the **first** issue inside an array, so two
+  bad rows needed two repair rounds and the configured two were never enough
+- the context stopped at `context_char_limit` silently, so a long invoice lost
+  its totals and the result looked exactly as confident as a complete one
+- `03/10/2026` was correctly refused as ambiguous, with no way to say "this
+  document is day-first"
+
+### Added
+
+- **`extraction.grounding`** - values match runs of *consecutive whole words*,
+  compared by parsed value per token. Every scalar carries a `MatchClass`
+  (`exact` / `normalized` / `fuzzy_ocr` / `not_found` / `not_checked`) and a
+  list of `Evidence`: page, the merged box of the matched words, the words
+  themselves, their source and the weakest OCR confidence. Line items ground
+  cell by cell, anchored on the row's most distinctive string cell, and one
+  token is evidence for exactly one value.
+- **`FieldType.DECIMAL`**, built from the normalised string and never via
+  `float`. `ExtractionResult.leaves`, `.ungrounded_paths`, `.truncated`,
+  `.warnings`; `FieldResult.path`, `.match`, `.evidence`;
+  `ExtractionConfig.date_order` and `.ocr_confidence_threshold`.
+- **`TesseractSource`** - pypdfium2 renders at 300 DPI, the `tesseract` binary
+  reads it through `subprocess` with a per-page timeout. New `ocr` extra. The
+  first thing to populate `Word.confidence` and `WordSource.OCR`, which until
+  now were contract fields nothing produced.
+- **`core.ImagePart` and `Message.images`** - OpenAI gets `image_url` parts
+  holding a base64 data URL, Anthropic gets `image` blocks with a base64
+  source, before the text. A text-only message still sends a plain string.
+  `CachedLLM` keys on an image fingerprint.
+- **`extraction_eval`** (unit 21) - golden sets keyed on field paths, field
+  accuracy, line-item precision/recall/F1, grounding rate, schema validity,
+  tokens and cost, and the **silent error rate**: results the pipeline accepted
+  that were wrong where it mattered. Plus `diff_extraction_reports`, which
+  names the documents a change broke.
+- **`entity_resolution.score_record`** - one record against candidates with
+  weights that already exist, no EM, plus `default_model` for fixed weights and
+  numeric and date comparators.
+- A `probe_grounding` probe in `stress/run_stress.py`, so the four claims in
+  this entry stay checkable rather than becoming prose.
+
+### What it got wrong
+
+- **`mypy` was not clean on the branch as handed off.** Two errors in
+  `adapters/sources.py` arrived with the TK-1 patch: pdfplumber's raw word
+  dicts shadowed the `list[Word]` built from them. The handoff asserted a clean
+  gate; the gate disagreed.
+- **The OCR test asserted something that is not true.** The handoff predicted
+  `INV-2026-0417` would come back as one OCR word. It does not - tesseract
+  splits it into `INV-2026-041` and `7`, because the hyphenated run is wide
+  enough to break. The test now asserts what the engine actually does, and the
+  split is the clearest argument for matching runs of words rather than single
+  tokens.
+- **A reading-order invariant over-asserted.** The pdfplumber test compares
+  words joined on spaces against blocks joined on spaces. That fails for OCR,
+  because `doc_layout` closes the sub-word gap the engine invented and the
+  block text has the identifier back as one token. The order is the invariant;
+  the spacing is the layout correcting the OCR.
+- **`extraction_eval`'s row keys hashed `str(Decimal)`.** `Decimal("1")` and
+  `Decimal("1.00")` are equal and print differently, so two identical amounts
+  went to two different keys and never matched. Not caught by the unit tests,
+  which happened to compare identical strings - caught by the packaging smoke
+  test, which compared `"1"` against `"1.00"`. Keys are canonical now.
+- **`context_char_limit` is still not an upper bound.** A single oversized
+  block is sent whole, because sending an empty document is worse, so
+  `truncated` stays False while the prompt exceeds the limit. Found while
+  building the harness, which tried to make a truncated case out of a plain
+  string and could not. Documented rather than fixed: changing it would change
+  behaviour every existing caller depends on, and Phase 0 is additive.
+- **`copy_tier` for `extraction_eval` is `needs_package`, not `needs_core`**,
+  although the unit is standard library only. Its dependency closure is `core`
+  **and** `extraction`, and this repository reserves `needs_core` for a closure
+  of `core` alone. The first attempt claimed the friendlier tier and
+  `test_copy_tier_matches_declared_deps` refused it, which is the test doing
+  its job.
+- **The `ocr` extra needs `pillow`**, which the handoff did not list. Something
+  has to serialise a rendered bitmap for the binary to read.
+- **`fuzzy_ocr` is reported but barely exercised.** One test covers it, on a
+  hand-built document. No real scan in the corpus produces a low-confidence
+  near miss, so the threshold of 0.75 is asserted rather than measured.
+- **Row locality needs a distinctive string.** A table row that states no
+  string of three characters or more is grounded without an anchor, and a
+  repeated number in it may still ground on another row. Invoices have
+  descriptions; not every table does.
+
+---
+
 ## 0.8.1 - 2026-10-03
 
 A documentation audit. No behaviour changed; several documents did, because
