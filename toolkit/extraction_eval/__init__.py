@@ -1,8 +1,12 @@
 from .metrics import (
     AMOUNT_KEYS,
+    CELL_COLUMNS,
     DESCRIPTION_KEYS,
+    LineItemComparison,
     LineItemScore,
+    WrongCell,
     canonical_number,
+    compare_line_items,
     field_accuracy,
     grounding_rate,
     line_item_scores,
@@ -25,6 +29,7 @@ from .runner import ExtractionEvalRunner, diff_extraction_reports, value_at
 
 __all__ = [
     "AMOUNT_KEYS",
+    "CELL_COLUMNS",
     "DESCRIPTION_KEYS",
     "ExtractionCase",
     "ExtractionCaseResult",
@@ -35,8 +40,11 @@ __all__ = [
     "ExtractionMetricDelta",
     "ExtractionRegressionDiff",
     "FieldOutcome",
+    "LineItemComparison",
     "LineItemScore",
+    "WrongCell",
     "canonical_number",
+    "compare_line_items",
     "diff_extraction_reports",
     "field_accuracy",
     "grounding_rate",

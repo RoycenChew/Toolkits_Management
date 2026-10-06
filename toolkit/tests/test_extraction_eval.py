@@ -41,6 +41,7 @@ from toolkit.extraction_eval import (  # noqa: E402
     ExtractionEvalReport,
     ExtractionEvalRunner,
     ExtractionGolden,
+    compare_line_items,
     diff_extraction_reports,
     field_accuracy,
     line_item_scores,
@@ -186,10 +187,22 @@ def test_field_accuracy_is_the_share_of_paths_that_were_right() -> None:
     assert mean([1.0, 0.0]) == 0.5
 
 
-def test_rows_are_matched_on_description_and_amount_together() -> None:
-    """Either alone is ambiguous: two rows of a real invoice routinely share an
-    amount, and a repeated description with a different amount is a different
-    row. The pair is what identifies one."""
+def test_rows_are_matched_on_the_description_alone() -> None:
+    """Changed deliberately, and the reason is worth keeping.
+
+    This used to match on `(description, amount)` together, on the argument
+    that either alone is ambiguous - two rows of a real invoice do share an
+    amount. That argument is sound for one combined precision/recall number and
+    wrong for anything finer: a row with a wrong amount came back *unmatched*,
+    so the report said a row was missing when in truth one of its four cells
+    was wrong. It could not see a wrong `quantity` at all, because the key
+    ignored it.
+
+    So the questions are split. `line_item_scores` answers "is the row
+    present"; `compare_line_items` answers "and is each cell right", per
+    column. Both are needed, and a model that returns every row full of rubbish
+    scores 1.0 here and badly there.
+    """
     expected = [
         {"description": "Hex bolt", "amount": "20.00"},
         {"description": "Washer flat", "amount": "15.00"},
@@ -210,11 +223,16 @@ def test_rows_are_matched_on_description_and_amount_together() -> None:
     assert partial.recall == 0.5
     assert partial.f1 == 0.5
 
-    # Same description, different amount: not the same row.
+    # Same description, wrong amount: the row IS present now. That is the
+    # change - its wrongness is a cell-level fact, reported by
+    # compare_line_items, not a missing row.
     wrong_amount = line_item_scores(
         expected, [{"description": "Hex bolt", "amount": "21.00"}]
     )
-    assert wrong_amount.matched == 0
+    assert wrong_amount.matched == 1
+    assert compare_line_items(
+        expected[:1], [{"description": "Hex bolt", "amount": "21.00"}]
+    ).any_cell_wrong is True
 
     # A duplicated correct row is one match and one false positive, not two
     # matches: multiset matching, or precision is unbounded above.

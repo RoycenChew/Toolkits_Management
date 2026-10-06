@@ -489,7 +489,8 @@
         "ExtractionEvalRunner",
         "ExtractionGolden",
         "ExtractionCase",
-        "diff_extraction_reports"
+        "diff_extraction_reports",
+        "compare_line_items"
       ],
       "maturity": "documented",
       "used_in_projects": [],
@@ -497,10 +498,10 @@
         "the golden set is the measurement; a mis-transcribed expectation reads as a model error forever",
         "no statistical significance testing",
         "field accuracy weights every path equally; required_paths and the silent error rate carry the distinction instead",
-        "rows are matched on description and amount only, so a table identified by three columns under-counts matches",
-        "cost is only meaningful behind an adapter that populates Usage.cost_usd"
+        "cost is only meaningful behind an adapter that populates Usage.cost_usd",
+        "rows are matched on the description with position as tiebreak, so a misread description is reported as one missing row and one extra rather than paired"
       ],
-      "last_reviewed": "2026-10-06",
+      "last_reviewed": "2026-10-07",
       "example": "examples/cookbook.py::unit_extraction_eval",
       "recipes": [
         "trustworthy_extraction"

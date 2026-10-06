@@ -76,11 +76,21 @@ them equal hides the error it was meant to find. `None` equals only `None`: a fi
 the model omitted is a wrong answer, not a missing measurement, or a model could
 score well by answering less.
 
-**Rows are matched on description *and* amount, as multisets.** Either field alone
-is ambiguous — two rows of a real invoice routinely share an amount, and a repeated
-description with a different amount is a different row. Multisets, not sets: a
-correct row returned twice is one match and one false positive, otherwise precision
-is unbounded above and a model that repeats every row outscores one that does not.
+**Rows are matched on the description, with position as the tiebreak, and then
+every cell is compared.** This used to match on `(description, amount)` together,
+on the argument that either alone is ambiguous. Sound for one combined
+precision/recall number, wrong for anything finer: a row with a wrong amount came
+back *unmatched*, so the report said a row was missing when one of its four cells
+was wrong — and a wrong `quantity` was invisible, because the key ignored it.
+
+So the questions are split. `line_item_scores` answers "is the row present";
+`compare_line_items` answers "and is each cell right", per column, with
+`cell_accuracy("quantity")` and a `wrong_cells` list naming row and column. Both
+are needed: a model that returns every row full of rubbish scores 1.0 on the first
+and badly on the second. Matching on the description means a *misread* description
+is reported as one missing row and one extra, because guessing which row it meant
+would be the harness inventing ground truth. Multisets still, so a correct row
+returned twice is one match and one false positive.
 
 ## Installation
 
