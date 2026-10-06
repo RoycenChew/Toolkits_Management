@@ -1,13 +1,13 @@
 # Reusable Engineering Toolkit
 
-> **Status:** 20 units of a 25 cap, across five layers. The spine (contracts,
+> **Status:** 21 units of a 25 cap, across five layers. The spine (contracts,
 > ports, adapters), ingestion (chunking, cache, governor, concurrency), the
 > `KnowledgeBase` pipeline with a saveable index, structured extraction,
 > injection defense, graph and DAG execution, the evaluation harness, a CLI,
 > and bring-your-own-key generation with no vendor SDK.
 >
 > It has been run against real input once: 49 uncurated arXiv PDFs, which found
-> nine defects that 429 tests and a hand-built hostile corpus had all missed.
+> nine defects that 451 tests and a hand-built hostile corpus had all missed.
 > See [`validation/paper_triage/FINDINGS.md`](../validation/paper_triage/FINDINGS.md).
 > Every unit is still `documented` rather than `production_ready`; that gate
 > needs use in a real project, not a test count.
@@ -78,7 +78,7 @@ a project. Each exposes one class with one method: `execute(input_data) -> outpu
 
 ## Layout
 
-Twenty units across five layers. Each package directory carries the same five
+Twenty-one units across five layers. Each package directory carries the same five
 files — `component.py` or equivalent, `models.py`, `__init__.py`, `README.md`,
 `requirements.txt` — so a unit can be copied out whole.
 
@@ -114,7 +114,7 @@ that in a subprocess with the repository off `sys.path`.
 ## Every unit has a runnable snippet
 
 ```bash
-python examples/cookbook.py --list        # 20 unit snippets + 9 recipes
+python examples/cookbook.py --list        # 21 unit snippets + 9 recipes
 python examples/cookbook.py chunking      # just one
 ```
 

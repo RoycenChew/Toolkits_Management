@@ -111,6 +111,14 @@ SMOKE = {
     "evaluation": "from {p}evaluation import hit_rate, EvalCase; "
                   "assert hit_rate([0, 1]) == 1.0; "
                   "assert EvalCase('c', 'q', expected_snippets=['x']).case_id == 'c'",
+    "extraction_eval": "from {p}extraction_eval import values_equal, line_item_scores, "
+                       "ExtractionCase; "
+                       "assert values_equal('USD 35.00', 35); "
+                       "assert not values_equal('35.00', None); "
+                       "assert line_item_scores([{{'description': 'a', 'amount': '1'}}], "
+                       "[{{'description': 'a', 'amount': '1.00'}}]).f1 == 1.0; "
+                       "assert ExtractionCase('c', expected={{'total': '1'}}).required() "
+                       "== ['total']",
 }
 
 SOURCE_SUFFIXES = (".py", ".md", ".json", ".toml", ".yml", ".txt", ".cfg")
@@ -423,6 +431,10 @@ def test_copy_pipelines():
 
 def test_copy_evaluation():
     _copy_and_import("evaluation")
+
+
+def test_copy_extraction_eval():
+    _copy_and_import("extraction_eval")
 
 
 def test_standalone_units_import_as_a_bare_top_level_package():

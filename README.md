@@ -25,11 +25,11 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 429 passing |
+| **Tests** | 451 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
-| **Components** | 20 units |
+| **Components** | 21 units |
 | **Ports / adapters** | 6 ports, 13 adapters (≥2 per port) |
 | **Base dependencies** | none |
 | **Python** | 3.10+ |
@@ -232,7 +232,7 @@ claim this repo tries not to make. There are eight kinds, recorded per unit in
 | **contracts** | types and protocols only | `core` `ports` |
 | **adapters** | the vendor containment boundary | `adapters` |
 | **facade** | wires the rest; `ingest_folder()` + `ask()` | `pipelines` |
-| **harness** | measures everything else | `evaluation` |
+| **harness** | measures everything else | `evaluation` `extraction_eval` |
 | **interface** | how a human or a script reaches the rest | `cli` |
 
 `copy_tier` in the registry says what you must copy to reuse each one — `standalone`,
@@ -259,6 +259,7 @@ repository off `sys.path`.
 | **`concurrency.py`** | Order-preserving bounded parallel map with index-attributed failures | own |
 | **`pipelines/`** | `KnowledgeBase`: `ingest_folder()` + `ask()` with verified citations | own — the wiring |
 | **`evaluation/`** | Golden sets, IR metrics, regression diff naming broken cases | own harness; standard IR metrics |
+| **[`extraction_eval/`](toolkit/extraction_eval/README.md)** | Golden sets keyed on field paths. Field accuracy, line-item P/R/F1, grounding rate, and the **silent error rate**: accepted results that were wrong where it mattered | own |
 | **[`provider/`](toolkit/provider/README.md)** | Resolve an AI provider from the environment — key, endpoint, model, API style — or an error naming what to set. Redacts the key in `repr` | own; shortcut-table shape from PRism |
 | **[`llm_http/`](toolkit/llm_http/README.md)** | The `LLM` port over plain HTTP, no vendor SDK. Classifies failures without retrying them, and refuses to return a truncated answer as a success | own; two-shape split from PRism |
 | **`cli.py`** | `ingest` / `ask` / `eval` / `inspect` over a saved index. 38-minute corpus, 0.7-second reload | own |
@@ -620,7 +621,7 @@ repair loop · the cost/cache/governor layer · MinHash + LSH near-duplicate det
 ## Testing
 
 ```bash
-python -m pytest toolkit/tests -q          # 429 tests
+python -m pytest toolkit/tests -q          # 451 tests
 python -m ruff check toolkit examples      # lint
 python -m mypy toolkit                     # types, 42 files
 
@@ -828,9 +829,10 @@ feeling.
     ├── llm_http/                  L2 the LLM port over plain HTTP, no SDK
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
+    ├── extraction_eval/           L4 extraction metrics, silent error rate
     ├── cli.py                     L4 ingest / ask / eval / inspect
     ├── __main__.py                `python -m toolkit` -> cli.main
-    └── tests/                     429 tests, seventeen suites
+    └── tests/                     451 tests, seventeen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

@@ -464,6 +464,44 @@
       ]
     },
     {
+      "id": "extraction_eval",
+      "path": "toolkit/extraction_eval",
+      "layer": 4,
+      "kind": "harness",
+      "capability": "golden sets keyed on field paths, extraction metrics including the silent error rate, regression diff naming broken documents",
+      "domains": [
+        "01",
+        "02",
+        "04"
+      ],
+      "toolkit_deps": [
+        "core",
+        "extraction"
+      ],
+      "external_deps": [],
+      "copy_tier": "needs_package",
+      "api": [
+        "ExtractionEvalRunner",
+        "ExtractionGolden",
+        "ExtractionCase",
+        "diff_extraction_reports"
+      ],
+      "maturity": "documented",
+      "used_in_projects": [],
+      "limitations": [
+        "the golden set is the measurement; a mis-transcribed expectation reads as a model error forever",
+        "no statistical significance testing",
+        "field accuracy weights every path equally; required_paths and the silent error rate carry the distinction instead",
+        "rows are matched on description and amount only, so a table identified by three columns under-counts matches",
+        "cost is only meaningful behind an adapter that populates Usage.cost_usd"
+      ],
+      "last_reviewed": "2026-10-06",
+      "example": "examples/cookbook.py::unit_extraction_eval",
+      "recipes": [
+        "trustworthy_extraction"
+      ]
+    },
+    {
       "id": "extraction",
       "path": "toolkit/extraction",
       "layer": 2,
@@ -859,6 +897,7 @@
       "units": [
         "core",
         "extraction",
+        "extraction_eval",
         "guardrails"
       ]
     },

@@ -74,10 +74,17 @@ from toolkit.evaluation import (  # noqa: E402
 )
 from toolkit.extraction import (  # noqa: E402
     ExtractionComponent,
+    ExtractionConfig,
     ExtractionRequest,
     ExtractionSchema,
     FieldSpec,
     FieldType,
+)
+from toolkit.extraction_eval import (  # noqa: E402
+    ExtractionCase,
+    ExtractionEvalRunner,
+    ExtractionGolden,
+    diff_extraction_reports,
 )
 from toolkit.governor import BudgetExceeded, GovernedLLM, GovernorConfig  # noqa: E402
 from toolkit.graph import (  # noqa: E402
@@ -456,6 +463,66 @@ def unit_evaluation() -> None:
     out("turning the gate off broke: %s\n" % list(diff.broken))
 
 
+def unit_extraction_eval() -> None:
+    """extraction_eval - the error an extractor does not report."""
+    invoice = (
+        "ACME Industrial Supplies\n"
+        "Invoice No: INV-88213\n"
+        "Hex bolt stainless 2 10.00 20.00\n"
+        "Washer flat 3 5.00 15.00\n"
+        "Total Due: USD 35.00\n"
+    )
+    schema = ExtractionSchema("Invoice", [
+        FieldSpec("invoice_number", FieldType.STRING, "The invoice reference"),
+        FieldSpec("total", FieldType.DECIMAL, "Total due"),
+        FieldSpec("line_items", FieldType.ARRAY, "Table rows", required=False, fields=[
+            FieldSpec("description", FieldType.STRING, "Item"),
+            FieldSpec("amount", FieldType.DECIMAL, "Line amount"),
+        ]),
+    ])
+    golden = ExtractionGolden("cookbook", [
+        ExtractionCase(
+            "inv-1",
+            source_text=invoice,
+            expected={
+                "invoice_number": "INV-88213",
+                "total": "35.00",
+                "line_items": [
+                    {"description": "Hex bolt stainless", "amount": "20.00"},
+                    {"description": "Washer flat", "amount": "15.00"},
+                ],
+            },
+            required_paths=["invoice_number", "total"],
+        ),
+    ])
+
+    def run(reference: str) -> object:
+        payload = (
+            '{"invoice_number": "%s", "total": "USD 35.00", "line_items": '
+            '[{"description": "Hex bolt stainless", "amount": "20.00"}, '
+            '{"description": "Washer flat", "amount": "15.00"}]}' % reference
+        )
+        return ExtractionEvalRunner(
+            ExtractionComponent(ScriptedLLM(responses=[payload])),
+            schema,
+            extraction_config=ExtractionConfig(max_repairs=0),
+        ).execute(golden)
+
+    good = run("INV-88213")
+    out("accurate    field_accuracy %.2f line_item_f1 %.2f silent %.2f\n" % (
+        good.metrics["field_accuracy"], good.metrics["line_item_f1"],
+        good.metrics["silent_error_rate"]))
+
+    # One digit wrong. The schema is still satisfied and nothing is flagged,
+    # which is exactly what makes it worth a metric of its own.
+    bad = run("INV-88214")
+    out("one digit   field_accuracy %.2f schema_valid %.2f silent %.2f\n" % (
+        bad.metrics["field_accuracy"], bad.metrics["schema_validity_rate"],
+        bad.metrics["silent_error_rate"]))
+    out("shipped and wrong %s\n" % bad.silent_errors)
+    out("diff broke  %s\n" % list(diff_extraction_reports(good, bad).broken))
+
+
 # --------------------------------------------------------------------------
 # composition recipes
 # --------------------------------------------------------------------------
@@ -557,6 +624,27 @@ def recipe_trustworthy_extraction() -> None:
     result = ExtractionComponent(llm).execute(ExtractionRequest(schema, safe))
     out("extracted %s\n" % dict(result.data))
     out("ungrounded %s\n" % [f.name for f in result.ungrounded])
+
+    # The measurement half of the recipe: the same extraction, scored against
+    # what a human verified on the page. A defused document that extracts
+    # cleanly is still worth checking against ground truth.
+    golden = ExtractionGolden("hostile", [
+        ExtractionCase(
+            "hostile-1",
+            source_text=safe.text,
+            expected={"reference": "INV-88213", "total": "1240.50"},
+            required_paths=["reference", "total"],
+            notes="The injected instruction asked for a total of zero.",
+        ),
+    ])
+    scored = ExtractionEvalRunner(
+        ExtractionComponent(
+            ScriptedLLM(responses=['{"reference": "INV-88213", "total": "$1,240.50"}'])
+        ),
+        schema,
+    ).execute(golden)
+    out("field_accuracy %.2f  silent_error_rate %.2f\n" % (
+        scored.metrics["field_accuracy"], scored.metrics["silent_error_rate"]))
 
 
 def recipe_reconcile_records() -> None:
@@ -983,6 +1071,7 @@ SNIPPETS = {
     "adapters": unit_adapters,
     "pipelines": unit_pipelines,
     "evaluation": unit_evaluation,
+    "extraction_eval": unit_extraction_eval,
     "recipe:cited_document_qa": recipe_cited_document_qa,
     "recipe:governed_cached_rag": recipe_governed_cached_rag,
     "recipe:resumable_ingest": recipe_resumable_ingest,
