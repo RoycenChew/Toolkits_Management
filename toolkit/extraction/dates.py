@@ -1,5 +1,8 @@
 """Date coercion and the reverse: how a page might have spelled an ISO date.
 
+Month names are recognised in English and Malay, because the market this is
+built for writes both.
+
 Two directions, one table of conventions, because they have to agree. If
 coercion reads `03/10/2026` as 3 October and grounding looks for `10/03/2026`,
 a correctly extracted date is reported as fabricated — a signal that fires on
@@ -26,10 +29,25 @@ _MONTH_NAMES = (
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 )
+_MONTH_NAMES_MS = (
+    "Januari", "Februari", "Mac", "April", "Mei", "Jun",
+    "Julai", "Ogos", "September", "Oktober", "November", "Disember",
+)
+"""Malay month names. Locale data rather than a domain concept, and this module
+already carried a table of them, so a second language is more of the same thing.
+Added for a measured miss: `17 Januari 2026` read as nothing. If a third and a
+fourth language arrive, the table should become a parameter rather than grow.
+
+The abbreviations are deliberately not derived for Malay: `Mac` is already three
+letters, and truncating `Jun`/`Julai` to three would collide."""
+
 _MONTHS = {name.lower(): index for index, name in enumerate(_MONTH_NAMES, start=1)}
 # Documents write "Mar 16, 2024" far more often than "March 16, 2024", and a
 # full-name-only lookup silently failed on every abbreviation.
 _MONTHS.update({name.lower()[:3]: index for index, name in enumerate(_MONTH_NAMES, 1)})
+# Malay last so a shared spelling (April, September, November) keeps one entry
+# and the two tables cannot disagree.
+_MONTHS.update({name.lower(): index for index, name in enumerate(_MONTH_NAMES_MS, 1)})
 
 _DAY_MONTH_NAME = re.compile(r"(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})")
 _MONTH_NAME_DAY = re.compile(r"([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})")
@@ -110,6 +128,7 @@ def date_variants(iso_text: str, date_order: DateOrder | None = None) -> list[st
         return []
     year, month, day = (int(part) for part in iso_text.split("-"))
     name = _MONTH_NAMES[month - 1]
+    malay = _MONTH_NAMES_MS[month - 1]
 
     variants = [
         iso_text,
@@ -120,6 +139,11 @@ def date_variants(iso_text: str, date_order: DateOrder | None = None) -> list[st
         "%s %d, %d" % (name, day, year),
         "%d %s %d" % (day, name[:3], year),
         "%s %d, %d" % (name[:3], day, year),
+        # Both languages, or a Malay date would coerce correctly and then fail
+        # to ground - the asymmetry this module exists to prevent.
+        "%d %s %d" % (day, malay, year),
+        "%02d %s %d" % (day, malay, year),
+        "%s %d, %d" % (malay, day, year),
     ]
 
     day_first = date_order == "DMY" or (date_order is None and day > 12)

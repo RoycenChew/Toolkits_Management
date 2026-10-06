@@ -12,7 +12,12 @@ import re
 from decimal import Decimal, InvalidOperation
 
 _CURRENCY = re.compile(
-    r"[$£€¥₹]|" + r"\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b",
+    r"[$£€¥₹]"
+    r"|\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b"
+    # Symbols written against the digits, so no trailing word boundary: there
+    # is none between the `M` and the `4` of `RM4,094.28`. The lookahead is
+    # what keeps `RMS` and `ROOM12` from being read as numbers.
+    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[\d(])",
     re.IGNORECASE,
 )
 """Currency symbols and ISO codes, stripped before numeric parsing. The word
@@ -34,7 +39,10 @@ def normalise_number_text(raw: str) -> str | None:
     * **Accounting negatives.** "($310.00)" is -310. Parentheses are how
       finance writes a negative, and dropping them inverts the sign of every
       credit note.
-    * **Currency words and codes.** "EUR 2.450,75" and "USD 1,240.50".
+    * **Currency words, codes and symbols.** "EUR 2.450,75", "USD 1,240.50"
+      and "RM4,094.28". A symbol written against the digits needs no trailing
+      word boundary and must not have one: there is none between the `M` and
+      the `4`.
 
     A single separator is ambiguous in principle — "1.234" is 1234 in Germany
     and 1.234 elsewhere. Resolved by digit grouping: exactly three digits after

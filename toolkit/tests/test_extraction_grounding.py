@@ -579,3 +579,163 @@ def test_a_repair_prompt_survives_decimal_values() -> None:
     )
     assert result.attempts == 2 and result.valid
     assert any("line_items[0].quantity" in m.content for m in llm.calls[1])
+
+# --------------------------------------------------------------------------
+# Found by the Phase 1 benchmark, on synthetic Malaysian invoices
+# --------------------------------------------------------------------------
+
+
+def test_the_ringgit_symbol_is_stripped_like_any_other_currency_marker() -> None:
+    """Measured: grounding on a Malaysian corpus missed 9 of 12 money values
+    because the page writes `RM4,094.28`.
+
+    `_CURRENCY` stripped the symbols `$ £ € ¥ ₹` and the ISO codes including
+    `myr`, but not `RM` - which is the marker actually printed on a Malaysian
+    invoice. ISO codes are separated by a space and symbols are not, so `RM`
+    needed the prefix form rather than a word boundary on both sides: there is
+    no boundary between the `M` and the `4`.
+    """
+    from toolkit.extraction import parse_decimal
+
+    assert parse_decimal("RM4,094.28") == Decimal("4094.28")
+    assert parse_decimal("RM327.54") == Decimal("327.54")
+    assert parse_decimal("rm1,240.50") == Decimal("1240.50")
+    assert parse_decimal("RM 1,240.50") == Decimal("1240.50")
+    assert parse_decimal("(RM310.00)") == Decimal("-310.00")
+    # Still refuses things that merely start with those letters.
+    assert parse_decimal("RMS") is None
+    assert parse_decimal("ROOM12") is None
+
+
+@needs_pdf
+def test_a_ringgit_prefixed_total_grounds_against_the_page() -> None:
+    fixture = invoice_pdf()
+    doc = PdfPlumberSource().load(fixture.path)
+    schema = ExtractionSchema(
+        "Invoice", [FieldSpec("total", FieldType.DECIMAL, "Total due")]
+    )
+    # The fixture writes "MYR 6,511.05"; assert the RM spelling parses to the
+    # same value so either marker reaches the same grounded result.
+    from toolkit.extraction import parse_decimal
+
+    assert parse_decimal("RM6,511.05") == parse_decimal("MYR 6,511.05")
+
+    result = ExtractionComponent(ScriptedLLM(responses=['{"total": "RM6,511.05"}'])).execute(
+        ExtractionRequest(schema, doc, ExtractionConfig(max_repairs=0))
+    )
+    total = result.field_map()["total"]
+    assert total.value == Decimal("6511.05")
+    assert total.grounded is True
+
+
+def test_a_percentage_on_the_page_grounds_a_plain_rate() -> None:
+    """Measured: a `tax_rate` of 6 was `not_found` although the page says
+    `SST 6%:`.
+
+    A token's number was parsed from its raw text, so `6%:` parsed to nothing.
+    The question grounding asks is "does this value appear on the page", and it
+    does - the percent sign and the colon are punctuation around the number,
+    not part of it.
+    """
+    document = Document(
+        doc_id="rate",
+        blocks=[Block(text="SST 6%: MYR 327.54", provenance=Provenance(page=1))],
+        words=[
+            Word("SST", 1, BBox(0, 0, 20, 10)),
+            Word("6%:", 1, BBox(22, 0, 38, 10)),
+            Word("MYR", 1, BBox(40, 0, 62, 10)),
+            Word("327.54", 1, BBox(64, 0, 100, 10)),
+        ],
+    )
+    schema = ExtractionSchema(
+        "Tax",
+        [
+            FieldSpec("tax_rate", FieldType.DECIMAL, "Rate as a number, 6 for 6%"),
+            FieldSpec("tax_amount", FieldType.DECIMAL, "Tax in currency"),
+        ],
+    )
+    result = ExtractionComponent(
+        ScriptedLLM(responses=['{"tax_rate": "6", "tax_amount": "327.54"}'])
+    ).execute(
+        ExtractionRequest(
+            schema=schema, source=document, config=ExtractionConfig(max_repairs=0)
+        )
+    )
+    fields = result.field_map()
+    assert fields["tax_rate"].value == Decimal("6")
+    assert fields["tax_rate"].grounded is True
+    assert list(fields["tax_rate"].evidence[0].words) == ["6%:"]
+    assert fields["tax_amount"].grounded is True
+
+
+def test_stripping_punctuation_does_not_invent_a_number() -> None:
+    """The inverse: a token that is not a number must not become one."""
+    document = Document(
+        doc_id="d",
+        blocks=[Block(text="Ref INV-2026-0417 page 1/2", provenance=Provenance(page=1))],
+        words=[
+            Word("Ref", 1, BBox(0, 0, 18, 10)),
+            Word("INV-2026-0417", 1, BBox(20, 0, 90, 10)),
+            Word("page", 1, BBox(92, 0, 112, 10)),
+            Word("1/2", 1, BBox(114, 0, 126, 10)),
+        ],
+    )
+    schema = ExtractionSchema("D", [FieldSpec("count", FieldType.INTEGER, "A count")])
+    result = ExtractionComponent(ScriptedLLM(responses=['{"count": 2026}'])).execute(
+        ExtractionRequest(
+            schema=schema, source=document, config=ExtractionConfig(max_repairs=0)
+        )
+    )
+    # 2026 is inside the reference, not a token of its own.
+    assert result.field_map()["count"].match is MatchClass.NOT_FOUND
+
+def test_a_malay_month_name_is_read_and_grounded() -> None:
+    """Measured on the Phase 1 corpus: a date written `17 Januari 2026` was
+    `not_found`, because the month table was English only.
+
+    Month names are locale data, not a domain concept, and this toolkit already
+    carries a table of them - so a second language is more of the same thing
+    rather than a new kind of thing. Malay is the other language of the market
+    FDIP is built for. If a third and fourth arrive, the table should become a
+    parameter instead of growing.
+    """
+    from toolkit.extraction import coerce_date
+
+    assert coerce_date("17 Januari 2026") == "2026-01-17"
+    assert coerce_date("3 Mac 2026") == "2026-03-03"
+    assert coerce_date("1 Mei 2026") == "2026-05-01"
+    assert coerce_date("16 Februari 2026") == "2026-02-16"
+    assert coerce_date("31 Disember 2026") == "2026-12-31"
+    assert coerce_date("8 Ogos 2026") == "2026-08-08"
+    assert coerce_date("9 Julai 2026") == "2026-07-09"
+    # English keeps working, including the abbreviations.
+    assert coerce_date("14 March 2024") == "2024-03-14"
+    assert coerce_date("Mar 16, 2024") == "2024-03-16"
+    # And a word that is not a month is still not a month.
+    assert coerce_date("17 Jumaat 2026") is None
+
+
+def test_a_malay_date_grounds_against_the_page() -> None:
+    document = Document(
+        doc_id="ms",
+        blocks=[Block(text="Tarikh: 17 Januari 2026", provenance=Provenance(page=1))],
+        words=[
+            Word("Tarikh:", 1, BBox(0, 0, 34, 10)),
+            Word("17", 1, BBox(36, 0, 46, 10)),
+            Word("Januari", 1, BBox(48, 0, 84, 10)),
+            Word("2026", 1, BBox(86, 0, 108, 10)),
+        ],
+    )
+    schema = ExtractionSchema("D", [FieldSpec("issued", FieldType.DATE, "Tarikh")])
+    result = ExtractionComponent(
+        ScriptedLLM(responses=['{"issued": "2026-01-17"}'])
+    ).execute(
+        ExtractionRequest(
+            schema=schema, source=document, config=ExtractionConfig(max_repairs=0)
+        )
+    )
+    issued = result.field_map()["issued"]
+    assert issued.value == "2026-01-17"
+    assert issued.grounded is True
+    assert issued.match is MatchClass.NORMALIZED
+    assert list(issued.evidence[0].words) == ["17", "Januari", "2026"]

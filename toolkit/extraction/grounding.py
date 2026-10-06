@@ -38,10 +38,14 @@ from .dates import date_variants, is_iso
 from .models import Evidence, FieldType, MatchClass
 from .numbers import as_decimal, parse_decimal
 
-_STRIP = ":,;()[]{}.\"'“”‘’!?*|"
+_STRIP = ":,;()[]{}.%\"'“”‘’!?*|"
 """Punctuation stripped from a token's edges before comparison. Interior
 characters stay: removing the hyphens from `INV-2026-0417` would let it match a
-different reference."""
+different reference.
+
+`%` is in the set because a rate of 6 is written `6%` on the page, and
+grounding asks whether the value appears there, not whether the units were
+printed. It is only ever stripped from an edge, so `100%ile` is untouched."""
 
 _SPLIT = re.compile(r"\S+")
 
@@ -95,11 +99,29 @@ def normalise_token(text: str) -> str:
     return text.strip().strip(_STRIP).lower()
 
 
+def _token_number(text: str, norm: str) -> Decimal | None:
+    """The token's numeric value, read through its punctuation if need be.
+
+    Parsed from the raw text first, then from the normalised form. Measured on
+    a Malaysian corpus: `SST 6%:` tokenises as `6%:`, which parses to nothing
+    raw and to 6 once the edge punctuation is gone - so a correct rate was
+    reported `not_found`. Raw first because it is the stricter reading and
+    should win where both succeed.
+    """
+    for candidate in (text, norm):
+        if not candidate:
+            continue
+        parsed = parse_decimal(candidate)
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _token_from_word(word: Word) -> _Token:
     return _Token(
         text=word.text,
         norm=normalise_token(word.text),
-        number=parse_decimal(word.text),
+        number=_token_number(word.text, normalise_token(word.text)),
         page=word.page,
         bbox=word.bbox,
         confidence=word.confidence,
@@ -125,7 +147,7 @@ def _tokens_from_segments(
                 _Token(
                     text=piece,
                     norm=normalise_token(piece),
-                    number=parse_decimal(piece),
+                    number=_token_number(piece, normalise_token(piece)),
                     page=page,
                     bbox=bbox,
                     confidence=None,

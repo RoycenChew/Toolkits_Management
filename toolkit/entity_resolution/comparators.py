@@ -23,7 +23,7 @@ import re
 from collections.abc import Callable
 from datetime import date
 
-_NUMBER_NOISE = re.compile(r"[,\s$£€¥₹]")
+_NUMBER_NOISE = re.compile(r"[,\s$£€¥₹]|rm(?=\s*\d)", re.IGNORECASE)
 _NUMBER_SHAPE = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 _ISO = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")

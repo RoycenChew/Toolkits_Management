@@ -28,7 +28,12 @@ from typing import Any
 
 _EDGE_PUNCTUATION = ":,;()[]{}.\"'!?*|"
 _CURRENCY = re.compile(
-    r"[$£€¥₹]|" + r"\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b",
+    r"[$£€¥₹]"
+    r"|\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b"
+    # Symbols written against the digits, so no trailing word boundary: there
+    # is none between the `M` and the `4` of `RM4,094.28`. The lookahead is
+    # what keeps `RMS` and `ROOM12` from being read as numbers.
+    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[\d(])",
     re.IGNORECASE,
 )
 
