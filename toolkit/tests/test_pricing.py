@@ -357,3 +357,82 @@ def test_the_model_version_records_the_extra_parameters() -> None:
         extra_body={"thinking": {"type": "disabled"}},
     )
     assert plain.model_version != thinking_off.model_version
+
+def test_a_cached_replay_does_not_trip_the_unpriced_guard() -> None:
+    """A false positive in the guard, found on a full-cache replay.
+
+    `CachedLLM` reports a replayed completion at `cost_usd=0.0` and
+    `cached=True`, and it is right to: the call really did cost nothing. The
+    guard counted those zeros as evidence that nothing was priced, so a run
+    that replayed every call from cache was killed by its own budget guard
+    after five documents.
+
+    That is not a benchmark problem. FDIP caches model calls by design
+    (CLAUDE.md 3.2, record-replay), so a re-run of a cached job would have
+    taken itself down in production.
+
+    A cached call is therefore not evidence either way. The guard counts only
+    calls that actually reached a provider and still reported nothing.
+    """
+    from toolkit.cache import CachedLLM, SqliteCache
+
+    class Priced:
+        model_version = "priced:1"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            from toolkit.core import Completion
+
+            self.calls += 1
+            return Completion(
+                text="{}",
+                usage=Usage(input_tokens=10, output_tokens=10, cost_usd=0.002),
+            )
+
+    # The cache is populated by an earlier run, as it is in a real replay.
+    store = SqliteCache()
+    warm = CachedLLM(Priced(), store)
+    prompts = [[Message("user", "doc %d" % n)] for n in range(12)]
+    for messages in prompts:
+        warm.complete(messages)
+
+    # A fresh governor over the warm cache: every call is a replay, so the
+    # total cost stays exactly zero for the whole run. This is the case the
+    # first version of the test missed, because its first call was real and
+    # priced, which hid the bug.
+    inner = Priced()
+    governed = GovernedLLM(
+        CachedLLM(inner, store), GovernorConfig(max_cost_usd=5.0)
+    )
+    for messages in prompts:
+        governed.complete(messages)
+
+    assert inner.calls == 0, "every call should have been a replay"
+    assert governed.state.calls == 12
+    assert governed.state.usage.cost_usd == 0.0, "replays are free, correctly"
+
+
+def test_an_unpriced_live_call_still_trips_the_guard_after_replays() -> None:
+    """The guard must not be disarmed by the fix: a genuinely unpriced
+    provider is still caught, even if some replays came first."""
+    from toolkit.cache import CachedLLM, SqliteCache
+
+    class Unpriced:
+        model_version = "unpriced:1"
+
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            from toolkit.core import Completion
+
+            return Completion(
+                text="{}", usage=Usage(input_tokens=1000, output_tokens=1000)
+            )
+
+    cached = CachedLLM(Unpriced(), SqliteCache())
+    governed = GovernedLLM(cached, GovernorConfig(max_cost_usd=5.0))
+
+    with pytest.raises(ValidationFailed):
+        # Each distinct prompt is a real call; none of them reports a cost.
+        for n in range(12):
+            governed.complete([Message("user", "prompt %d" % n)])

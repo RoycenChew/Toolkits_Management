@@ -82,6 +82,12 @@ class GovernorConfig:
 class GovernorState:
     usage: Usage = field(default_factory=Usage)
     calls: int = 0
+    unpriced_calls: int = 0
+    """Calls that reached a provider and reported no cost.
+
+    Distinct from `calls`, because a cached replay legitimately costs nothing
+    and must not be read as "the provider is unpriced" - which killed a
+    full-cache replay with its own budget guard."""
     retries: int = 0
     throttled_seconds: float = 0.0
 
@@ -155,6 +161,13 @@ class GovernedLLM:
             with self._lock:
                 self.state.usage = self.state.usage + completion.usage
                 self.state.calls += 1
+                # A replay reports cost 0.0 and is right to - it really was
+                # free - so it is no evidence about whether the provider is
+                # priced. Only a call that reached one and still said nothing
+                # counts towards the unpriced guard.
+                spent = completion.usage or Usage()
+                if not spent.cached and spent.cost_usd == 0.0:
+                    self.state.unpriced_calls += 1
             return completion
 
         raise AdapterError(
@@ -196,7 +209,7 @@ class GovernedLLM:
             if (
                 cfg.max_cost_usd is not None
                 and cfg.require_priced_calls
-                and state.calls >= cfg.unpriced_call_grace
+                and state.unpriced_calls >= cfg.unpriced_call_grace
                 and state.usage.cost_usd == 0.0
             ):
                 # Not BudgetExceeded: nothing was exceeded. This is a
@@ -206,8 +219,9 @@ class GovernedLLM:
                     "a cost ceiling of $"
                     + format(cfg.max_cost_usd, ".4f")
                     + " is set, but "
-                    + str(state.calls)
-                    + " calls have reported a cost of $0.0000, so the ceiling"
+                    + str(state.unpriced_calls)
+                    + " uncached calls have reported a cost of $0.0000, so the"
+                    + " ceiling"
                     + " can never be reached. Give the adapter a price book"
                     + " (provider.PriceBook) so Usage.cost_usd is populated,"
                     + " or set require_priced_calls=False if the model really"
