@@ -12,6 +12,7 @@ a system.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -271,10 +272,64 @@ class Usage:
 
 
 @dataclass(frozen=True)
+class ImagePart:
+    """An image to send alongside a message: bytes and what they are.
+
+    Deliberately the smallest thing both request shapes can be built from. The
+    two APIs that matter disagree about everything above this - OpenAI wants a
+    base64 data URL under `image_url`, Anthropic wants a base64 `source` with
+    the media type as its own field - so a contract that encoded either one
+    would stop being a contract the moment the other was added.
+
+    No path, no URL and no lazy loading: a `Message` that might read a file when
+    something eventually serialises it cannot be cached, logged or replayed, and
+    all three of those are things this toolkit does with messages.
+    """
+
+    data: bytes
+    media_type: str = "image/png"
+
+    def __post_init__(self) -> None:
+        if not self.data:
+            raise ValueError("image part has no bytes")
+        if not self.media_type.startswith("image/"):
+            raise ValueError(
+                "media_type must be an image type, got " + repr(self.media_type)
+            )
+
+    @property
+    def base64(self) -> str:
+        """Unwrapped base64, which is what both APIs want."""
+        return base64.b64encode(self.data).decode("ascii")
+
+    @property
+    def data_url(self) -> str:
+        return "data:" + self.media_type + ";base64," + self.base64
+
+    def fingerprint(self) -> str:
+        """Content identity, for a cache key.
+
+        The media type is part of it: the same bytes declared as a different
+        type is a different request, and a cache that cannot tell them apart
+        serves one answer for both.
+        """
+        digest = hashlib.sha256()
+        digest.update(self.media_type.encode("utf-8"))
+        digest.update(b"\x00")
+        digest.update(self.data)
+        return digest.hexdigest()[:32]
+
+
+@dataclass(frozen=True)
 class Message:
     role: str
     """'system', 'user' or 'assistant'."""
     content: str
+    images: Sequence[ImagePart] = field(default_factory=tuple)
+    """Images to send with this turn, in order. Empty for every text-only
+    message, which is every message that existed before this field did - so a
+    text-only turn still serialises to a plain `content` string and no existing
+    request body changes."""
 
 
 @dataclass(frozen=True)
@@ -308,6 +363,7 @@ __all__ = [
     "Completion",
     "Document",
     "FURNITURE",
+    "ImagePart",
     "Message",
     "Provenance",
     "SearchHit",

@@ -109,6 +109,10 @@ llm = GovernedLLM(CachedLLM(LiteLLMClient(), cache),
 
 ## Limitations
 
+- An image-bearing request is keyed on each `ImagePart.fingerprint()` — a
+  SHA-256 over the media type and the bytes — not on the base64 itself, so a
+  multi-megabyte scan does not become a multi-megabyte cache key.
+
 - **No expiry or eviction.** The cache grows without bound. Call `clear(namespace)`
   when a model changes, or delete the file. Adding a TTL would need a policy that
   only you can choose.

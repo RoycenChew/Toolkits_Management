@@ -5,7 +5,8 @@
 ## What It Does
 
 Defines the types every other unit speaks: `Document`, `Block`, `Chunk`,
-`Provenance`, `BBox`, `Usage`, `Completion`, `SearchHit`, `Message`, the screening
+`Provenance`, `BBox`, `Usage`, `Completion`, `SearchHit`, `Message`,
+`ImagePart`, the screening
 limits, and the error taxonomy.
 
 No algorithms, no I/O, no vendor imports. Data contracts and nothing else.
@@ -38,7 +39,8 @@ Block         text + BlockType + level + provenance
 Document      doc_id (content hash) + ordered blocks + page_count + metadata
 Chunk         chunk_id (doc_id#index slot) + text + provenances[] + metadata
 Usage         input/output tokens + cost + cached flag. Summable.
-Message       role + content          Completion   text + usage + model
+Message       role + content + images[]            Completion   text + usage + model
+ImagePart     bytes + media type. base64 / data_url / fingerprint() for a cache key.
 SearchHit     chunk_id + score + text. Score scale is backend-specific by design.
 ScreeningLimits / ScreeningResult / ScreeningFailure    parse guards
 ToolkitError  -> MissingDependency | AdapterError -> RateLimited | ValidationFailed

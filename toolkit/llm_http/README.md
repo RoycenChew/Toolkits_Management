@@ -49,6 +49,8 @@ OPENAI                       ANTHROPIC
 POST {base}/chat/completions  POST {base}/v1/messages
 Authorization: Bearer <key>   x-api-key, anthropic-version
 system stays in messages      system LIFTED OUT of messages
+images -> image_url parts     images -> image blocks, BEFORE the text
+  (base64 data URL)             (base64 source + media_type)
    └─────────────┬──────────────┘
                  ▼
           transport(url, headers, body, timeout) -> (status, text)
@@ -112,7 +114,38 @@ HttpLLM(provider, transport=fake)   # asserts RateLimited, offline
 
 The error translation **is** the valuable part of this unit, and error handling
 that can only be exercised against a live provider is error handling nobody
-tests. All 43 tests for this unit and `provider` run offline with no key.
+tests. All 58 tests for this unit, `provider` and the image shapes run offline
+with no key.
+
+## Sending an image
+
+A scanned page is sometimes better read by a vision model than by OCR.
+`Message.images` is a sequence of `core.ImagePart` (bytes plus a media type),
+empty by default, and the two styles serialise it differently:
+
+```python
+from toolkit.core import ImagePart, Message
+
+page = ImagePart(png_bytes, media_type="image/png")
+llm.complete([Message("user", "What is the invoice total?", images=[page])])
+```
+
+- **OpenAI style** sends `content` as a list: a `text` part, then one
+  `image_url` part per image holding a base64 **data URL**.
+- **Anthropic style** sends `image` blocks with a base64 `source` and the media
+  type as its own field, **before** the text. That order is what Anthropic
+  documents and uses, and it is not cosmetic: a question asked before the image
+  it refers to measurably degrades the answer.
+- **A text-only message still sends `content` as a plain string.** Both styles
+  accept a parts list for text, but switching every existing call to one would
+  change the request body of every pipeline already running, to no end.
+- An image on an **Anthropic system prompt** raises `AdapterError`. The system
+  prompt is a top-level string in that API, so the image has nowhere to go, and
+  dropping it quietly would send a request that cannot answer the question it
+  was asked.
+
+`CachedLLM` keys on each image's `fingerprint()`, so two requests differing only
+in the image do not serve each other's answers.
 
 ## Limitations
 
@@ -126,6 +159,13 @@ tests. All 43 tests for this unit and `provider` run offline with no key.
 - **No cost.** `Usage.cost_usd` stays 0.0; there is no per-model price table.
 - **Two styles only**, and a provider that is only *nearly* OpenAI-compatible
   may still need its own branch.
+- **Images are sent, not checked.** There is no size limit, no re-encoding and
+  no format conversion here: the bytes go as they are. Every provider caps
+  image size and resolution, and exceeding it is a 400 carrying the provider's
+  own message. Resize before sending.
+- **Images are base64 in the request body**, which inflates them by a third and
+  is held in memory whole. A 30-page scan is a request measured in megabytes;
+  send pages one at a time.
 - **Synchronous.** One call, one thread. Use `concurrency.bounded_map` for
   fan-out.
 - **Gemini via the OpenAI-compatible endpoint**, not its native API, so

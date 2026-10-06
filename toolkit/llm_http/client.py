@@ -164,11 +164,33 @@ class HttpLLM:
             {"Authorization": "Bearer " + self.provider.api_key},
             {
                 "model": self.provider.model,
-                "messages": [{"role": m.role, "content": m.content} for m in messages],
+                "messages": [
+                    {"role": m.role, "content": self._openai_content(m)}
+                    for m in messages
+                ],
                 "temperature": temperature,
                 "max_tokens": limit,
             },
         )
+
+    @staticmethod
+    def _openai_content(message: Message) -> Any:
+        """A plain string for a text-only turn, a parts list when there is an image.
+
+        The string case is not an optimisation. This style accepts a parts list
+        for text too, but switching every existing call to one would change the
+        request body of every pipeline already running against it, to no end.
+        """
+        if not message.images:
+            return message.content
+        parts: list[dict[str, Any]] = []
+        if message.content:
+            parts.append({"type": "text", "text": message.content})
+        parts.extend(
+            {"type": "image_url", "image_url": {"url": image.data_url}}
+            for image in message.images
+        )
+        return parts
 
     def _anthropic_request(
         self, messages: Sequence[Message], temperature: float, limit: int
@@ -179,9 +201,18 @@ class HttpLLM:
         turns are lifted out and joined. Getting this wrong produces a 400 whose
         message does not obviously point at the cause.
         """
+        for message in messages:
+            if message.role == "system" and message.images:
+                # The system prompt is a top-level string in this API, so an
+                # image on it has nowhere to go. Dropping it quietly would send
+                # a request that cannot answer the question it was asked.
+                raise AdapterError(
+                    "an Anthropic system prompt cannot carry images; put them on"
+                    " a user message"
+                )
         system = "\n\n".join(m.content for m in messages if m.role == "system")
         turns = [
-            {"role": m.role, "content": m.content}
+            {"role": m.role, "content": self._anthropic_content(m)}
             for m in messages
             if m.role != "system"
         ]
@@ -205,6 +236,31 @@ class HttpLLM:
             },
             body,
         )
+
+    @staticmethod
+    def _anthropic_content(message: Message) -> Any:
+        """Image blocks first, then the text.
+
+        That order is what Anthropic documents and uses in every example, and
+        it is not cosmetic: a question asked before the image it refers to
+        measurably degrades the answer.
+        """
+        if not message.images:
+            return message.content
+        blocks: list[dict[str, Any]] = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image.media_type,
+                    "data": image.base64,
+                },
+            }
+            for image in message.images
+        ]
+        if message.content:
+            blocks.append({"type": "text", "text": message.content})
+        return blocks
 
     # -- failure classification -------------------------------------------
     def _raise_for_status(self, status: int, payload: Any, raw: str) -> None:

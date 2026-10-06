@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from ..core.errors import AdapterError, MissingDependency, RateLimited
-from ..core.models import Completion, Message, Usage
+from ..core.models import Completion, ImagePart, Message, Usage
 
 
 def _estimate_tokens(text: str) -> int:
@@ -48,6 +48,9 @@ class ScriptedLLM:
         self._handler = handler
         self._model = model
         self.calls: list[list[Message]] = []
+        self.images: list[list[ImagePart]] = []
+        """Every image sent, one entry per call. Same reason `calls` exists: the
+        thing that is wrong is usually what the pipeline actually sent."""
 
     @property
     def model_version(self) -> str:
@@ -62,6 +65,7 @@ class ScriptedLLM:
         max_tokens: int | None = None,
     ) -> Completion:
         self.calls.append(list(messages))
+        self.images.append([image for m in messages for image in m.images])
         if self._responses:
             text = self._responses.pop(0)
         elif self._handler is not None:

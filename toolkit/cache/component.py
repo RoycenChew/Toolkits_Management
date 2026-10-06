@@ -206,7 +206,14 @@ class CachedLLM:
             self._model,
             temperature,
             max_tokens,
-            [(m.role, m.content) for m in messages],
+            # The image fingerprints belong in the key for the same reason
+            # the model version does (TK-5): two requests that differ only in a
+            # field the key ignores serve each other's answers, and nothing
+            # anywhere reports an error.
+            [
+                (m.role, m.content, tuple(i.fingerprint() for i in m.images))
+                for m in messages
+            ],
         )
         cached = self._cache.get(key)
         if cached is not None:

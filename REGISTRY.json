@@ -124,7 +124,7 @@
         "no expiry or eviction",
         "identity falls back to the class name for a wrapped model with no model_version"
       ],
-      "last_reviewed": "2026-10-01",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_cache",
       "recipes": [
         "byok_generation",
@@ -259,7 +259,8 @@
         "BBox",
         "Usage",
         "ScreeningLimits",
-        "Word"
+        "Word",
+        "ImagePart"
       ],
       "maturity": "documented",
       "used_in_projects": [
@@ -268,7 +269,7 @@
       "limitations": [
         "no tenant or lineage fields yet; see docs/ARCHITECTURE.md section 6"
       ],
-      "last_reviewed": "2026-10-01",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_core",
       "recipes": [
         "byok_generation",
@@ -669,9 +670,10 @@
         "no retry_after, because the transport returns a status and a body but not headers",
         "Usage.cost_usd stays 0.0; there is no per-model price table",
         "synchronous: one call, one thread. Use concurrency.bounded_map to fan out",
-        "a provider that is only nearly OpenAI-compatible may still need its own branch"
+        "a provider that is only nearly OpenAI-compatible may still need its own branch",
+        "images are sent as base64 in the request body, unresized and unchecked against the provider's own size caps"
       ],
-      "last_reviewed": "2026-10-03",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_llm_http",
       "recipes": [
         "byok_generation"
