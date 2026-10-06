@@ -17,6 +17,10 @@
 .eggs/
 .env
 .env.*
+# The provider dotfile: DEFAULT_ENV_FILE in toolkit/provider/resolve.py. It
+# holds an API key and matches neither pattern above.
+.toolkit.env
+.toolkit.env.local
 .idea/
 .lancedb/
 .mypy_cache/
