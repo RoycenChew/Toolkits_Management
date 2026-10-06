@@ -12,6 +12,7 @@ from .sources import (
     DoclingSource,
     PdfPlumberSource,
     PlainTextSource,
+    TesseractSource,
     default_sources,
     load_document,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "PlainTextSource",
     "ScriptedLLM",
     "SqliteFtsIndex",
+    "TesseractSource",
     "default_sources",
     "load_document",
 ]

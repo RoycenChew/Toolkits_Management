@@ -51,18 +51,21 @@
         "doc_layout"
       ],
       "external_deps": [
-        "pdfplumber",
+        "bm25s",
         "docling",
-        "litellm",
         "fastembed",
         "lancedb",
-        "bm25s",
+        "litellm",
+        "pdfplumber",
+        "pillow",
+        "pypdfium2",
         "sentence-transformers"
       ],
       "copy_tier": "needs_package",
       "api": [
         "PlainTextSource",
         "PdfPlumberSource",
+        "TesseractSource",
         "DoclingSource",
         "HashingEmbedder",
         "FastEmbedEmbedder",
@@ -81,9 +84,10 @@
         "validation/paper_triage"
       ],
       "limitations": [
-        "every vendor import is lazy, so failures surface at call time not construction"
+        "every vendor import is lazy, so failures surface at call time not construction",
+        "TesseractSource needs the tesseract binary on PATH, which no extra can install"
       ],
-      "last_reviewed": "2026-10-01",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_adapters",
       "recipes": [
         "cited_document_qa",

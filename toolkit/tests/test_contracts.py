@@ -51,6 +51,7 @@ from toolkit.adapters import (  # noqa: E402
     PlainTextSource,
     ScriptedLLM,
     SqliteFtsIndex,
+    TesseractSource,
     load_document,
 )
 from toolkit.core import BBox  # noqa: E402
@@ -580,6 +581,11 @@ PORT_SUITES: list[tuple[str, str, object]] = [
         "DocumentSource",
         "PdfPlumberSource",
         lambda: document_source_contract(PdfPlumberSource, _pdf_path()),
+    ),
+    (
+        "DocumentSource",
+        "TesseractSource",
+        lambda: document_source_contract(TesseractSource, _pdf_path()),
     ),
     (
         "DocumentSource",

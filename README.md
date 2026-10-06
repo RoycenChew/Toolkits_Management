@@ -25,7 +25,7 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 405 passing |
+| **Tests** | 414 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
@@ -244,7 +244,7 @@ repository off `sys.path`.
 |---|---|---|
 | **`core/`** | The shared contracts: `Document`, `Block`, `Chunk`, `Provenance`, `Usage`, `SearchHit`, `BBox`, error taxonomy | own |
 | **`ports.py`** | Seven `Protocol`s the toolkit needs from the outside world: `DocumentSource`, `Embedder`, `LLM`, `VectorStore`, `LexicalIndex`, `Reranker`, `Cache` | own |
-| **`adapters/`** | 14 adapters, ≥2 per port, every vendor import lazy | — |
+| **`adapters/`** | 15 adapters, ≥2 per port, every vendor import lazy | — |
 | **`doc_layout/`** | Positioned text spans → ordered semantic blocks. Recursive XY-cut for columns, IoU overlap resolution, font-statistics heading levels, recurring-line boilerplate detection | XY-cut (Nagy & Seth 1984), Docling layout post-processing, Marker heading heuristics |
 | **`chunking/`** | `Document` → citable chunks. Structure-aware, heading breadcrumbs, whole-sentence overlap, word-split fallback, rendered-text budget enforcement | own (Chonkie's taxonomy for reference) |
 | **`hybrid_ranker/`** | Merge incomparable retriever scores. RRF, min-max / z-score fusion, budgeted rerank cascade, MMR diversification | RRF (Cormack 2009), Qdrant/Weaviate fusion, ColBERT/SPLADE cascades |
@@ -275,7 +275,7 @@ runs offline.
 
 | Port | stdlib | real backends |
 |---|---|---|
-| `DocumentSource` | `PlainTextSource` | `PdfPlumberSource`, `DoclingSource` |
+| `DocumentSource` | `PlainTextSource` | `PdfPlumberSource`, `TesseractSource`, `DoclingSource` |
 | `Embedder` | `HashingEmbedder` | `FastEmbedEmbedder` |
 | `VectorStore` | `InMemoryVectorStore` | `LanceDBStore` |
 | `LexicalIndex` | `SqliteFtsIndex` (FTS5) | `Bm25sIndex` |
@@ -620,7 +620,7 @@ repair loop · the cost/cache/governor layer · MinHash + LSH near-duplicate det
 ## Testing
 
 ```bash
-python -m pytest toolkit/tests -q          # 405 tests
+python -m pytest toolkit/tests -q          # 414 tests
 python -m ruff check toolkit examples      # lint
 python -m mypy toolkit                     # types, 42 files
 
@@ -807,7 +807,7 @@ feeling.
     ├── core/                      L0 contracts, error taxonomy, text normalisation
     ├── ports.py                   L0 protocols
     ├── adapters/                  L2 — the only place a vendor SDK may be imported
-    │   ├── sources.py             PlainText / PdfPlumber / Docling
+    │   ├── sources.py             PlainText / PdfPlumber / Tesseract / Docling
     │   ├── embedders.py           Hashing / FastEmbed
     │   ├── llms.py                Scripted / LiteLLM
     │   ├── stores.py              InMemory / LanceDB / SqliteFts / Bm25s
@@ -830,7 +830,7 @@ feeling.
     ├── evaluation/                L4 golden sets, metrics, regression diff
     ├── cli.py                     L4 ingest / ask / eval / inspect
     ├── __main__.py                `python -m toolkit` -> cli.main
-    └── tests/                     405 tests, seventeen suites
+    └── tests/                     414 tests, seventeen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

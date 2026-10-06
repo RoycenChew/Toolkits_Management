@@ -4,7 +4,7 @@
 
 ## What It Does
 
-The only place in the toolkit a vendor SDK may be imported. Fourteen adapters
+The only place in the toolkit a vendor SDK may be imported. Fifteen adapters
 implementing six ports, with **at least two per port** — a rule enforced by a
 failing test, not a convention.
 
@@ -25,7 +25,7 @@ offline with no API key.
 
 | Port | stdlib | real backends |
 |---|---|---|
-| `DocumentSource` | `PlainTextSource` | `PdfPlumberSource`, `DoclingSource` |
+| `DocumentSource` | `PlainTextSource` | `PdfPlumberSource`, `TesseractSource`, `DoclingSource` |
 | `Embedder` | `HashingEmbedder` | `FastEmbedEmbedder` |
 | `VectorStore` | `InMemoryVectorStore` | `LanceDBStore` |
 | `LexicalIndex` | `SqliteFtsIndex` | `Bm25sIndex` |
@@ -51,6 +51,7 @@ offline with no API key.
 
 ```bash
 pip install -e ".[docs]"     # pdfplumber, docling
+pip install -e ".[ocr]"      # pypdfium2, pillow (+ the tesseract binary, see below)
 pip install -e ".[embed]"    # fastembed
 pip install -e ".[store]"    # lancedb, bm25s
 pip install -e ".[llm]"      # litellm
@@ -62,11 +63,25 @@ This unit depends on `core` and `doc_layout`, so it is **not** a copy-one-folder
 component — install the package. A missing optional package raises
 `MissingDependency` naming the exact extra, never a bare `ImportError`.
 
+`TesseractSource` additionally needs the **`tesseract` binary on PATH**, which no
+pip extra can install:
+
+```bash
+sudo apt install tesseract-ocr        # Debian/Ubuntu
+brew install tesseract                # macOS
+winget install UB-Mannheim.TesseractOCR   # Windows
+```
+
+An absent binary raises `MissingDependency("tesseract", "ocr")` from `load()`,
+checked before any rendering happens, so the failure is one line and not a
+stack trace out of a subprocess.
+
 ## Notable behaviour
 
 | Adapter | Worth knowing |
 |---|---|
 | `PdfPlumberSource` | Reads `top`/`bottom` (already y-down). Screens size **and page count** — a 2 KB file can declare 40,000 pages, so a size cap alone does not bound the work. Raises `AdapterError` naming OCR when there is no text layer. Keeps every word on `Document.words` with its own box, in block reading order |
+| `TesseractSource` | Renders PDF pages with `pypdfium2` at 300 DPI, then runs the `tesseract` binary per page with TSV output and a **per-page timeout**, which is the reason it is a subprocess and not `pytesseract`: a timeout is only enforceable on a child process. Converts confidence from 0-100 to [0, 1] and pixel boxes back to points by `* 72 / dpi`. Also reads `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, where the configured DPI is the only thing that can give a page size |
 | `DoclingSource` | Traverses via `iterate_items()` or `.texts` because the API moved between versions. Normalises bbox to y-down by ordering rather than trusting field names. Screens size only |
 | `PlainTextSource` | Line-oriented, because Markdown needs no blank line after a heading — paragraph-first splitting silently destroyed every heading |
 | `HashingEmbedder` | `model_version` encodes dimension *and* trigram setting, so a config change is as detectable as a model change |
@@ -106,8 +121,21 @@ kb = KnowledgeBase(embedder=FastEmbedEmbedder(), vector_store=LanceDBStore("./.l
   the package — but it means a missing dependency can hide until the first call.
 - `DoclingSource` cannot screen page count without opening the file twice, so it
   screens size only. Pre-screen with `PdfPlumberSource` when the input is a PDF.
-- No OCR adapter yet. `DoclingSource` can OCR internally; PaddleOCR-VL and dots.ocr
-  are the recommended borrows and are unimplemented.
+- `TesseractSource` needs the `tesseract` binary, and no pip extra can install one.
+  The adapter checks for it up front rather than failing inside a subprocess.
+- **OCR invents word boundaries.** Measured on the test fixture at 300 DPI: mean
+  confidence 0.91, about 1 s per page, every key identifier readable — but
+  `INV-2026-0417` comes back as `INV-2026-041` and `7`, because the hyphenated run
+  is wide enough to break. Anything matching against OCR words has to match *runs*
+  of words; `extraction`'s grounding does, which is why that works anyway.
+- An image file carries no page geometry, so `TesseractSource` converts its pixels
+  with the configured `dpi`. A wrong DPI scales every box uniformly — recoverable,
+  but it will not line up on a render until it is right.
+- `TesseractSource` reads what tesseract reports and nothing more: no deskewing, no
+  binarisation, no orientation detection. A rotated or skewed scan needs
+  pre-processing, or `DoclingSource`, which has a real pipeline in front of its OCR.
+- PaddleOCR-VL and dots.ocr remain the recommended borrows for layout-aware OCR and
+  are unimplemented.
 - `LanceDBStore` converts L2 distance to `1/(1+d)` so larger is better. That is
   monotonic but not comparable to cosine from another store — fuse with RRF, which
   needs no score calibration, rather than raw scores.
@@ -125,6 +153,8 @@ kb = KnowledgeBase(embedder=FastEmbedEmbedder(), vector_store=LanceDBStore("./.l
    the port's contract test must pass unchanged.
 4. Pass `model_name` explicitly in production. Several adapters default it to the
    class name, which collides when two models sit behind one class.
+5. Check `doc.metadata["mean_confidence"]` after any OCR load. Below about 0.7 the
+   render or the scan is the problem, and no prompt downstream repairs it.
 
 ## Extraction Notes
 
