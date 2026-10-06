@@ -22,7 +22,7 @@ SHORTCUTS: tuple[tuple[str, ApiStyle, str | None, str, str], ...] = (
      "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-pro", "Gemini"),
     ("GOOGLE_API_KEY", ApiStyle.OPENAI,
      "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-pro", "Gemini"),
-    ("DEEPSEEK_API_KEY", ApiStyle.OPENAI, "https://api.deepseek.com", "deepseek-chat", "DeepSeek"),
+    ("DEEPSEEK_API_KEY", ApiStyle.OPENAI, "https://api.deepseek.com", "deepseek-flash", "DeepSeek"),
     ("GROQ_API_KEY", ApiStyle.OPENAI, "https://api.groq.com/openai/v1",
      "llama-3.3-70b-versatile", "Groq"),
     ("MISTRAL_API_KEY", ApiStyle.OPENAI, "https://api.mistral.ai/v1",

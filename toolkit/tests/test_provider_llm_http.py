@@ -71,7 +71,7 @@ def test_a_single_shortcut_key_is_enough() -> None:
     """A key with no model is still unusable, so a shortcut carries one."""
     provider = _deepseek()
     assert provider.style is ApiStyle.OPENAI
-    assert provider.model == "deepseek-chat"
+    assert provider.model == "deepseek-flash"
     assert provider.endpoint == "https://api.deepseek.com"
     assert provider.source == "DEEPSEEK_API_KEY"
 
@@ -313,7 +313,7 @@ def test_a_404_names_the_model_and_the_endpoint() -> None:
             [Message(role="user", content="x")]
         )
     message = str(caught.value)
-    assert "deepseek-chat" in message
+    assert "deepseek-flash" in message
     assert "https://api.deepseek.com" in message
 
 

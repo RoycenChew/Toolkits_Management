@@ -121,7 +121,7 @@ except SetupError as exc:
     print(exc)       # lists the variables checked and the shortest fix
     raise SystemExit(2)
 print(provider.describe())
-# DeepSeek deepseek-chat via https://api.deepseek.com (key <set:19 chars ...7890> from DEEPSEEK_API_KEY)
+# DeepSeek deepseek-flash via https://api.deepseek.com (key <set:19 chars ...7890> from DEEPSEEK_API_KEY)
 ```
 
 `python examples/cookbook.py provider` runs a worked example.

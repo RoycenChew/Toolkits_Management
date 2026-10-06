@@ -54,7 +54,7 @@ UNITS = {unit["id"]: unit for unit in REGISTRY["units"]}
 SMOKE = {
     "provider": "from {p}provider import ApiStyle, resolve; "
                 "p = resolve(env_file=None, environ={{'DEEPSEEK_API_KEY': 'sk-abcdefgh'}}); "
-                "assert p.style is ApiStyle.OPENAI and p.model == 'deepseek-chat'; "
+                "assert p.style is ApiStyle.OPENAI and p.model == 'deepseek-flash'; "
                 "assert 'sk-abcdefgh' not in repr(p)",
     "llm_http": "import json; from {p}llm_http import HttpLLM; "
                 "from {p}provider import resolve; from {p}core import Message; "

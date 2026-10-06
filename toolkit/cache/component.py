@@ -177,8 +177,19 @@ class CachedLLM:
     def __init__(self, llm: Any, cache: Any, model_name: str | None = None) -> None:
         self._llm = llm
         self._cache = cache
-        self._model = model_name or type(llm).__name__
+        # Identity comes from the wrapped model, never from its class. Every
+        # HttpLLM shares a class name, so keying on it let two different models
+        # behind one cache serve each other's answers with no error anywhere.
+        self._model = model_name or str(
+            getattr(llm, "model_version", None) or type(llm).__name__
+        )
         self.calls = 0
+
+    @property
+    def model_version(self) -> str:
+        """The identity the cache keys on: the explicit `model_name`, else the
+        wrapped model's own `model_version`, else its class name."""
+        return self._model
 
     def complete(
         self,

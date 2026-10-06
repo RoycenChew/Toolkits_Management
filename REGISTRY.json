@@ -118,7 +118,7 @@
       "used_in_projects": [],
       "limitations": [
         "no expiry or eviction",
-        "model_name defaults to the class name and can collide"
+        "identity falls back to the class name for a wrapped model with no model_version"
       ],
       "last_reviewed": "2026-10-01",
       "example": "examples/cookbook.py::unit_cache",

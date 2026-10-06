@@ -714,9 +714,9 @@ one segment. It needs a `DocumentSource` that classifies page furniture —
 **Governor state is per-process.** Eight workers with `max_requests_per_minute=60` will
 collectively issue 480. A cluster-wide budget needs a shared counter.
 
-**The cache has no expiry or eviction.** It grows until you `clear()` it. `model_name`
-defaults to the wrapper class name, so two different models behind the same class
-collide — pass it explicitly in production.
+**The cache has no expiry or eviction.** It grows until you `clear()` it. Identity comes
+from the wrapped model's `model_version`; a model without one falls back to its class
+name and can collide.
 
 **`durable_steps` is not a scheduler.** No queue, no worker pool, no cron. It makes a
 run resumable; deciding when to run it is yours. `idempotent=False` gives *detection*,

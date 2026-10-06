@@ -112,9 +112,10 @@ llm = GovernedLLM(CachedLLM(LiteLLMClient(), cache),
 - **No expiry or eviction.** The cache grows without bound. Call `clear(namespace)`
   when a model changes, or delete the file. Adding a TTL would need a policy that
   only you can choose.
-- `model_name` defaults to the wrapper class name. Two different underlying models
-  behind the same class will collide — pass `model_name` explicitly when it matters.
-  This is the most likely way to get a wrong hit.
+- Cache identity is the wrapped model's `model_version` (or an explicit
+  `model_name`). A wrapped object with no `model_version` falls back to its class
+  name, and two such objects behind one class will collide. Every LLM in this
+  toolkit has a `model_version`; give your own one too.
 - Values must be JSON-serialisable, so embeddings are stored as float lists. That is
   roughly 20 bytes per dimension as text; a million 768-dim chunks is large.
 - Non-zero temperature bypasses the cache entirely by design.
@@ -126,8 +127,8 @@ llm = GovernedLLM(CachedLLM(LiteLLMClient(), cache),
 ## Integration Guide
 
 1. Use one file-backed `SqliteCache` per project and pass it to every wrapper.
-2. Pass `model_name` explicitly in production. Defaulting to the class name is
-   convenient in tests and a hazard once you run two models.
+2. Make sure the wrapped model exposes `model_version` (all toolkit LLMs do), or
+   pass `model_name` explicitly. Only then do two models never share entries.
 3. Wrap the embedder before any batching helper, so `bounded_map` parallelises only
    the genuine misses.
 4. Put the cache inside the governor, not outside.

@@ -49,6 +49,12 @@ class ScriptedLLM:
         self._model = model
         self.calls: list[list[Message]] = []
 
+    @property
+    def model_version(self) -> str:
+        """Distinct per `model` label, so two scripted models with different
+        scripts never share entries in a cache."""
+        return "scripted:" + self._model
+
     def complete(
         self,
         messages: Sequence[Message],
@@ -92,6 +98,10 @@ class LiteLLMClient:
         self._model = model
         self._completion = completion_fn
         self._defaults = defaults
+
+    @property
+    def model_version(self) -> str:
+        return "litellm:" + self._model
 
     def _ensure(self) -> Callable[..., Any]:
         if self._completion is None:
