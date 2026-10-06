@@ -156,7 +156,14 @@ in the image do not serve each other's answers.
 - **No `retry_after`.** The transport returns a status and a body, not headers,
   so a provider's `Retry-After` is not surfaced; `governor` falls back to its
   own backoff.
-- **No cost.** `Usage.cost_usd` stays 0.0; there is no per-model price table.
+- **No prices ship with the toolkit**, deliberately: a table that goes stale in a
+  library nobody updates weekly is worse than none, because a stale number is
+  believed. `Usage.cost_usd` therefore stays 0.0 **unless you pass a
+  `provider.PriceBook`**, which is the rate per million tokens you already know,
+  with an optional off-peak window. The omission used to be load-bearing in a bad
+  way: `GovernedLLM`'s `max_cost_usd` is checked against that field, so a ceiling
+  on an unpriced adapter never fired. `governor` now refuses that configuration
+  rather than pretending — see `require_priced_calls`.
 - **Two styles only**, and a provider that is only *nearly* OpenAI-compatible
   may still need its own branch.
 - **Images are sent, not checked.** There is no size limit, no re-encoding and

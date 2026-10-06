@@ -24,7 +24,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-from ..core.errors import AdapterError, RateLimited, ToolkitError
+from ..core.errors import AdapterError, RateLimited, ToolkitError, ValidationFailed
 from ..core.models import Completion, Message, Usage
 
 
@@ -41,6 +41,24 @@ class GovernorConfig:
     max_total_tokens: int | None = None
     """Ceiling across the governor's lifetime, input plus output."""
     max_cost_usd: float | None = None
+    require_priced_calls: bool = True
+    """Refuse to pretend a cost ceiling is binding when nothing reports a cost.
+
+    `max_cost_usd` is checked against `Usage.cost_usd`, which an adapter leaves
+    at 0.0 unless it was given prices. A ceiling enforced against a constant
+    zero never fires, and that is worse than having no ceiling, because it is
+    believed: the measured case was a live benchmark reporting a spend of $0.00
+    for work that had demonstrably cost money.
+
+    So after `unpriced_call_grace` calls with a cost ceiling set and nothing
+    spent, the governor raises instead of continuing. Set this False for a
+    model that genuinely is free - a local one - where zero is the truth.
+    """
+    unpriced_call_grace: int = 5
+    """How many zero-cost calls to tolerate before deciding nothing is priced.
+    More than one, because a provider may omit usage on a single response; few
+    enough that a misconfiguration is caught in seconds rather than in a bill.
+    """
     max_calls: int | None = None
     max_requests_per_minute: float | None = None
     max_attempts: int = 3
@@ -174,6 +192,26 @@ class GovernedLLM:
                     + format(state.usage.cost_usd, ".4f")
                     + ")",
                     state.usage,
+                )
+            if (
+                cfg.max_cost_usd is not None
+                and cfg.require_priced_calls
+                and state.calls >= cfg.unpriced_call_grace
+                and state.usage.cost_usd == 0.0
+            ):
+                # Not BudgetExceeded: nothing was exceeded. This is a
+                # misconfiguration, and saying so is the entire point - the
+                # ceiling was never going to fire.
+                raise ValidationFailed(
+                    "a cost ceiling of $"
+                    + format(cfg.max_cost_usd, ".4f")
+                    + " is set, but "
+                    + str(state.calls)
+                    + " calls have reported a cost of $0.0000, so the ceiling"
+                    + " can never be reached. Give the adapter a price book"
+                    + " (provider.PriceBook) so Usage.cost_usd is populated,"
+                    + " or set require_priced_calls=False if the model really"
+                    + " is free."
                 )
 
     # --- rate limiting ----------------------------------------------------

@@ -34,7 +34,7 @@ from typing import Any
 
 from ..core.errors import AdapterError, RateLimited
 from ..core.models import Completion, Message, Usage
-from ..provider import ApiStyle, Provider, resolve
+from ..provider import ApiStyle, PriceBook, Provider, resolve
 
 #: A transport takes (url, headers, body, timeout) and returns (status, text).
 #:
@@ -113,11 +113,17 @@ class HttpLLM:
         timeout: float = 120.0,
         max_output_tokens: int = 4096,
         transport: Transport | None = None,
+        prices: PriceBook | None = None,
     ) -> None:
         self.provider = provider if provider is not None else resolve()
         self.timeout = timeout
         self.max_output_tokens = max_output_tokens
         self._transport: Transport = transport or urllib_transport
+        # Empty by default, so `Usage.cost_usd` stays 0.0 and nothing changes
+        # for an existing caller. A caller that knows its prices supplies them
+        # and the governor's cost ceiling starts meaning something - see
+        # `provider.pricing` for why the toolkit ships no numbers of its own.
+        self.prices = prices if prices is not None else PriceBook()
 
     @property
     def model_version(self) -> str:
@@ -332,13 +338,15 @@ class HttpLLM:
                 % (self.provider.label, finish or "unset")
             )
         usage = payload.get("usage") or {}
+        model = str(payload.get("model") or self.provider.model)
         return Completion(
             text=text,
-            usage=Usage(
-                input_tokens=int(usage.get("prompt_tokens") or 0),
-                output_tokens=int(usage.get("completion_tokens") or 0),
+            usage=self._usage(
+                model,
+                int(usage.get("prompt_tokens") or 0),
+                int(usage.get("completion_tokens") or 0),
             ),
-            model=str(payload.get("model") or self.provider.model),
+            model=model,
             finish_reason=finish,
         )
 
@@ -365,12 +373,27 @@ class HttpLLM:
                 % (self.provider.label, stop or "unset")
             )
         usage = payload.get("usage") or {}
+        model = str(payload.get("model") or self.provider.model)
         return Completion(
             text=text,
-            usage=Usage(
-                input_tokens=int(usage.get("input_tokens") or 0),
-                output_tokens=int(usage.get("output_tokens") or 0),
+            usage=self._usage(
+                model,
+                int(usage.get("input_tokens") or 0),
+                int(usage.get("output_tokens") or 0),
             ),
-            model=str(payload.get("model") or self.provider.model),
+            model=model,
             finish_reason=stop,
+        )
+
+    def _usage(self, model: str, input_tokens: int, output_tokens: int) -> Usage:
+        """Token counts from the provider, cost from the caller's price book.
+
+        Priced against the model that *answered*, not the one that was asked
+        for: a provider may alias, fall back or silently upgrade, and the bill
+        follows the model that did the work.
+        """
+        return Usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_usd=self.prices.cost(model, input_tokens, output_tokens),
         )

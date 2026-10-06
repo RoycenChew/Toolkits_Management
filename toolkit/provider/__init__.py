@@ -1,6 +1,7 @@
 """Credential and endpoint resolution for AI providers. Imports nothing."""
 
 from .models import ApiStyle, Provider, SetupError
+from .pricing import ModelPrice, OffPeakWindow, PriceBook
 from .resolve import (
     BASE_VAR,
     DEFAULT_ENV_FILE,
@@ -17,6 +18,9 @@ from .resolve import (
 
 __all__ = [
     "ApiStyle",
+    "ModelPrice",
+    "OffPeakWindow",
+    "PriceBook",
     "Provider",
     "SetupError",
     "Diagnosis",
