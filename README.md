@@ -25,7 +25,7 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 382 passing |
+| **Tests** | 405 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
@@ -620,7 +620,7 @@ repair loop · the cost/cache/governor layer · MinHash + LSH near-duplicate det
 ## Testing
 
 ```bash
-python -m pytest toolkit/tests -q          # 382 tests
+python -m pytest toolkit/tests -q          # 405 tests
 python -m ruff check toolkit examples      # lint
 python -m mypy toolkit                     # types, 42 files
 
@@ -824,13 +824,13 @@ feeling.
     ├── hybrid_ranker/             L2 RRF, cascade, MMR
     ├── entity_resolution/         L2 blocking, Fellegi-Sunter, clustering
     ├── guardrails/                L2 injection defense, output policy
-    ├── extraction/                L2 repair loop, grounding, splitter
+    ├── extraction/                L2 repair loop, word-level grounding, splitter
     ├── llm_http/                  L2 the LLM port over plain HTTP, no SDK
     ├── pipelines/                 L3 KnowledgeBase: ingest + ask
     ├── evaluation/                L4 golden sets, metrics, regression diff
     ├── cli.py                     L4 ingest / ask / eval / inspect
     ├── __main__.py                `python -m toolkit` -> cli.main
-    └── tests/                     382 tests, fifteen suites
+    └── tests/                     405 tests, seventeen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

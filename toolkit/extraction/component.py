@@ -10,23 +10,33 @@ validation failure:
   the value it produced**. That turns a guess into a correction, and it is why
   two repair rounds are usually enough.
 
-The second thing this adds is grounding: after validation, each extracted value
-is searched for in the source text. A value that appears verbatim carries the
-provenance of the passage it came from — so a field can be clicked back to a page
-and a bounding box. A value that does not appear anywhere is flagged. It is not
-necessarily wrong (a total can be computed, a date reformatted), but every
-fabricated value is in that set, so it is the set a human should see first.
+The second thing this adds is grounding: after validation, every extracted
+scalar - including each cell inside a line-item table - is searched for among
+the document's own words. A value that is found carries the merged box of the
+words that matched, so a field can be clicked back to one cell rather than to
+the whole table, and a match class saying how exactly it matched. A value that
+is not found anywhere is flagged. It is not necessarily wrong (a total can be
+computed, a date reformatted), but every fabricated value is in that set, so it
+is the set a human should see first.
+
+The matching itself lives in `grounding`, because getting it right is most of
+the work: see that module for why substring matching reported a fabricated
+quantity as found.
 """
 from __future__ import annotations
 
 import json
 import re
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from typing import Any
 
 from ..core.errors import ValidationFailed
-from ..core.models import Chunk, Document, Message, Provenance, Usage
+from ..core.models import BBox, Chunk, Document, Message, Provenance, Usage, Word
+from .dates import coerce_date
+from .grounding import Grounder, Match
 from .models import (
+    Evidence,
     ExtractionConfig,
     ExtractionRequest,
     ExtractionResult,
@@ -34,20 +44,18 @@ from .models import (
     FieldResult,
     FieldSpec,
     FieldType,
+    MatchClass,
     ValidationIssue,
 )
+from .numbers import parse_decimal, parse_number
 
 _FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TRUE = frozenset({"true", "yes", "y", "1"})
 _FALSE = frozenset({"false", "no", "n", "0"})
-_CURRENCY = re.compile(
-    r"[$£€¥₹]|" + r"\b(?:usd|eur|gbp|jpy|myr|sgd|aud|cad|chf|cny|inr)\b",
-    re.IGNORECASE,
+_GROUNDING_EXEMPT = frozenset(
+    {FieldType.DATE, FieldType.BOOLEAN, FieldType.OBJECT, FieldType.ARRAY}
 )
-"""Currency symbols and ISO codes, stripped before numeric parsing. The word
-boundaries matter: without them "inr" would match inside an ordinary word."""
-_NUMBER_NOISE = re.compile(r"[,\s$£€¥₹]")
 
 _SYSTEM = (
     "You extract structured data from documents. Return a single JSON object and "
@@ -120,68 +128,10 @@ def _normalise(text: Any) -> str:
     return " ".join(str(text).lower().split())
 
 
-def _parse_number(raw: str) -> float | None:
-    """Parse a money-shaped string into a float.
-
-    Handles three things the naive strip-commas approach gets wrong, all found
-    in the stress corpus:
-
-    * **European notation.** "2.450,75" means 2450.75, not 2.45075. The rule
-      that disambiguates is positional, not locale-based: when both separators
-      appear, the **rightmost** one is the decimal point. That holds for both
-      conventions and needs no locale guess.
-    * **Accounting negatives.** "($310.00)" is -310. Parentheses are how
-      finance writes a negative, and dropping them inverts the sign of every
-      credit note.
-    * **Currency words and codes.** "EUR 2.450,75" and "USD 1,240.50".
-
-    A single separator is ambiguous in principle — "1.234" is 1234 in Germany
-    and 1.234 elsewhere. Resolved by digit grouping: exactly three digits after
-    a lone separator is read as a thousands group, which is the convention that
-    makes "1.234" and "1,234" both mean 1234.
-    """
-    text = raw.strip()
-    if not text:
-        return None
-
-    negative = False
-    if text.startswith("(") and text.endswith(")"):
-        negative = True
-        text = text[1:-1].strip()
-    text = _CURRENCY.sub("", text).strip()
-    if text.startswith("-"):
-        negative = not negative
-        text = text[1:].strip()
-    text = text.replace(" ", "").replace(" ", "")
-    if not text:
-        return None
-
-    last_dot = text.rfind(".")
-    last_comma = text.rfind(",")
-    if last_dot >= 0 and last_comma >= 0:
-        # Both present: the rightmost separator is the decimal point.
-        if last_comma > last_dot:
-            text = text.replace(".", "").replace(",", ".")
-        else:
-            text = text.replace(",", "")
-    elif last_comma >= 0:
-        tail = text[last_comma + 1 :]
-        text = (
-            text.replace(",", "")
-            if len(tail) == 3 and tail.isdigit()
-            else text.replace(",", ".")
-        )
-    elif last_dot >= 0:
-        tail = text[last_dot + 1 :]
-        if len(tail) == 3 and tail.isdigit() and text.count(".") >= 1 and len(text) > 4:
-            # "2.450" with no other separator: a thousands group.
-            text = text.replace(".", "")
-
-    try:
-        value = float(text)
-    except ValueError:
-        return None
-    return -value if negative else value
+_parse_number = parse_number
+"""Kept as a module-level name because it is the documented seam the stress
+regression tests import. The implementation moved to `numbers`, which both the
+float and the `Decimal` parsers now share."""
 
 
 class ExtractionComponent:
@@ -191,11 +141,27 @@ class ExtractionComponent:
         if llm is None:
             raise ValueError("ExtractionComponent requires an LLM")
         self._llm = llm
+        self._words: Sequence[Word] = ()
 
     def execute(self, input_data: ExtractionRequest) -> ExtractionResult:
         cfg = input_data.config
         segments = self._segments(input_data.source)
-        context = self._context(segments, cfg)
+        context, sent_chars, total_chars = self._context(segments, cfg)
+        warnings: list[str] = []
+        truncated = sent_chars < total_chars
+        if truncated:
+            # Reported, never repaired. A repair round cannot put back text the
+            # model was never shown, and dressing it up as a validation issue
+            # would burn both attempts chasing an unfixable complaint.
+            warnings.append(
+                "document truncated: sent "
+                + str(sent_chars)
+                + " of "
+                + str(total_chars)
+                + " characters (context_char_limit="
+                + str(cfg.context_char_limit)
+                + "); fields stated only in the omitted text cannot be found"
+            )
 
         messages = [
             Message("system", _SYSTEM),
@@ -243,17 +209,25 @@ class ExtractionComponent:
             )
 
             if cfg.require_grounding:
-                issues = issues + self._grounding_issues(data, input_data.schema, segments)
+                _, leaf_pairs = self._ground_all(data, input_data.schema, segments, cfg)
+                issues = issues + self._grounding_issues(leaf_pairs)
 
             if not issues:
                 break
             if attempt < cfg.max_repairs:
                 messages = messages[:2] + [
-                    Message("assistant", json.dumps(data, ensure_ascii=False)),
+                    # default=str because a DECIMAL field holds a Decimal, which
+                    # json cannot serialise. Without it the second attempt died
+                    # here rather than repairing anything.
+                    Message(
+                        "assistant",
+                        json.dumps(data, ensure_ascii=False, default=str),
+                    ),
                     Message("user", self._repair_prompt(issues, input_data.schema)),
                 ]
 
-        fields = self._ground(data, input_data.schema, segments)
+        fields, leaf_pairs = self._ground_all(data, input_data.schema, segments, cfg)
+        leaves = [leaf for leaf, _ in leaf_pairs]
 
         if issues and cfg.strict:
             raise ValidationFailed(
@@ -270,6 +244,9 @@ class ExtractionComponent:
             attempts=attempts,
             usage=usage,
             raw_responses=raw_responses,
+            leaves=leaves,
+            truncated=truncated,
+            warnings=warnings,
         )
 
     # --- source handling --------------------------------------------------
@@ -280,9 +257,13 @@ class ExtractionComponent:
         Keeping provenance attached at this level is what lets a field point back
         at a page later; flattening to one string first would discard it.
         """
+        self._words = ()
         if isinstance(source, str):
             return [(source, None)]
         if isinstance(source, Document):
+            # The evidence layer, when the source kept one. Grounding prefers it
+            # over block text because a block is a whole table.
+            self._words = source.words
             return [
                 (block.text, block.provenance)
                 for block in source.content_blocks()
@@ -304,17 +285,30 @@ class ExtractionComponent:
 
     def _context(
         self, segments: Sequence[tuple[str, Provenance | None]], cfg: ExtractionConfig
-    ) -> str:
+    ) -> tuple[str, int, int]:
+        """The prompt's document text, plus how much of it was sent and how much
+        there was.
+
+        Returning the two counts is the whole point: the previous version
+        stopped at the limit and said nothing, so a long invoice lost its totals
+        and the result looked as confident as any other.
+        """
         parts: list[str] = []
         used = 0
+        total = 0
+        stopped = False
         for text, prov in segments:
             label = "(page " + str(prov.page) + ") " if prov else ""
             piece = label + text
+            total += len(piece)
+            if stopped:
+                continue
             if used + len(piece) > cfg.context_char_limit and parts:
-                break
+                stopped = True
+                continue
             parts.append(piece)
             used += len(piece)
-        return "\n".join(parts)
+        return "\n".join(parts), used, total
 
     # --- prompting --------------------------------------------------------
 
@@ -333,6 +327,8 @@ class ExtractionComponent:
             bits.append("<= " + str(spec.maximum))
         if spec.type is FieldType.DATE:
             bits.append("format YYYY-MM-DD")
+        if spec.type is FieldType.DECIMAL:
+            bits.append("exact decimal digits only, no currency symbol or code")
         if spec.type is FieldType.ARRAY and spec.item_type:
             bits.append("of " + spec.item_type.value)
         line = pad + "- " + spec.name + " (" + "; ".join(bits) + ")"
@@ -405,70 +401,96 @@ class ExtractionComponent:
                     )
                 data[spec.name] = None
                 continue
-            coerced, issue = self._validate_value(value, spec, cfg, path)
+            coerced, found = self._validate_value(value, spec, cfg, path)
             data[spec.name] = coerced
-            if issue is not None:
-                issues.append(issue)
+            issues.extend(found)
         return data, issues
 
     def _validate_value(
         self, value: Any, spec: FieldSpec, cfg: ExtractionConfig, path: str
-    ) -> tuple[Any, ValidationIssue | None]:
+    ) -> tuple[Any, list[ValidationIssue]]:
+        """Validate one value and report **every** problem under it.
+
+        The measured defect: this returned the first issue inside an array and
+        stopped, so a 30-row table with four bad rows took four repair rounds to
+        fix and the configured two were never enough. One attempt that names all
+        four costs the same tokens and converges.
+        """
         kind = spec.type
 
         if kind is FieldType.OBJECT:
             if not isinstance(value, Mapping):
-                return None, ValidationIssue(path, "expected an object", value)
-            nested, nested_issues = self._validate_object(value, spec.fields, cfg, path + ".")
-            return nested, nested_issues[0] if nested_issues else None
+                return None, [ValidationIssue(path, "expected an object", value)]
+            nested, nested_issues = self._validate_object(
+                value, spec.fields, cfg, path + "."
+            )
+            return nested, nested_issues
 
         if kind is FieldType.ARRAY:
             if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-                return None, ValidationIssue(path, "expected an array", value)
+                return None, [ValidationIssue(path, "expected an array", value)]
             out: list[Any] = []
+            issues: list[ValidationIssue] = []
             for index, item in enumerate(value):
                 item_path = path + "[" + str(index) + "]"
                 if spec.fields:
                     if not isinstance(item, Mapping):
-                        return out, ValidationIssue(item_path, "expected an object", item)
+                        issues.append(
+                            ValidationIssue(item_path, "expected an object", item)
+                        )
+                        out.append(None)
+                        continue
                     nested, nested_issues = self._validate_object(
                         item, spec.fields, cfg, item_path + "."
                     )
                     out.append(nested)
-                    if nested_issues:
-                        return out, nested_issues[0]
+                    issues.extend(nested_issues)
                 else:
                     element = FieldSpec(
                         name=spec.name, type=spec.item_type or FieldType.STRING
                     )
-                    coerced, issue = self._validate_value(item, element, cfg, item_path)
+                    coerced, found = self._validate_value(item, element, cfg, item_path)
                     out.append(coerced)
-                    if issue is not None:
-                        return out, issue
-            return out, None
+                    issues.extend(found)
+            return out, issues
 
         coerced, issue = self._scalar(value, spec, cfg, path)
         if issue is not None:
-            return coerced, issue
+            return coerced, [issue]
 
         if spec.enum and str(coerced) not in spec.enum:
-            return coerced, ValidationIssue(
-                path, "must be one of: " + ", ".join(spec.enum), coerced
-            )
+            return coerced, [
+                ValidationIssue(
+                    path, "must be one of: " + ", ".join(spec.enum), coerced
+                )
+            ]
         if spec.pattern and not re.fullmatch(spec.pattern, str(coerced)):
-            return coerced, ValidationIssue(
-                path, "must match the pattern " + spec.pattern, coerced
-            )
-        if isinstance(coerced, (int, float)) and not isinstance(coerced, bool):
-            if spec.minimum is not None and coerced < spec.minimum:
-                return coerced, ValidationIssue(
-                    path, "must be at least " + str(spec.minimum), coerced
+            return coerced, [
+                ValidationIssue(
+                    path, "must match the pattern " + spec.pattern, coerced
                 )
-            if spec.maximum is not None and coerced > spec.maximum:
-                return coerced, ValidationIssue(
-                    path, "must be at most " + str(spec.maximum), coerced
-                )
-        return coerced, None
+            ]
+        if isinstance(coerced, (int, float, Decimal)) and not isinstance(coerced, bool):
+            if spec.minimum is not None and coerced < self._bound(coerced, spec.minimum):
+                return coerced, [
+                    ValidationIssue(
+                        path, "must be at least " + str(spec.minimum), coerced
+                    )
+                ]
+            if spec.maximum is not None and coerced > self._bound(coerced, spec.maximum):
+                return coerced, [
+                    ValidationIssue(
+                        path, "must be at most " + str(spec.maximum), coerced
+                    )
+                ]
+        return coerced, []
+
+    @staticmethod
+    def _bound(value: Any, limit: float) -> Any:
+        """A bound in the same type as the value it constrains. Comparing a
+        Decimal against a float bound is legal but goes through the float's
+        binary expansion, so 0.1 as a limit rejects Decimal('0.1')."""
+        return Decimal(str(limit)) if isinstance(value, Decimal) else limit
 
     def _scalar(
         self, value: Any, spec: FieldSpec, cfg: ExtractionConfig, path: str
@@ -486,6 +508,27 @@ class ExtractionComponent:
             if cfg.coerce and token in _FALSE:
                 return False, None
             return value, ValidationIssue(path, "expected true or false", value)
+
+        if kind is FieldType.DECIMAL:
+            if isinstance(value, bool):
+                # Before the int branch: bool is a subclass of int, and
+                # Decimal(True) is a silent 1.
+                return value, ValidationIssue(path, "expected a number", value)
+            if isinstance(value, Decimal):
+                return value, None
+            if isinstance(value, int):
+                return Decimal(value), None
+            if isinstance(value, float):
+                # str() first, always. Decimal(1240.50) is
+                # 1240.50000000000004547473508864641189575195312500, because
+                # 1240.50 has no binary representation; Decimal(str(1240.50))
+                # is 1240.50, which is the fact the document stated.
+                return Decimal(str(value)), None
+            if cfg.coerce and isinstance(value, str):
+                exact = parse_decimal(value)
+                if exact is not None:
+                    return exact, None
+            return value, ValidationIssue(path, "expected a number", value)
 
         if kind in (FieldType.INTEGER, FieldType.NUMBER):
             if isinstance(value, bool):
@@ -515,131 +558,251 @@ class ExtractionComponent:
             if _ISO_DATE.fullmatch(text):
                 return text, None
             if cfg.coerce:
-                converted = self._coerce_date(text)
+                converted = self._coerce_date(text, cfg.date_order)
                 if converted:
                     return converted, None
-            return value, ValidationIssue(
-                path, "expected a date formatted YYYY-MM-DD", value
+            detail = (
+                "expected a date formatted YYYY-MM-DD"
+                if cfg.date_order
+                else "expected a date formatted YYYY-MM-DD; this one is ambiguous"
+                " without knowing whether the document writes day or month first"
             )
+            return value, ValidationIssue(path, detail, value)
 
         return value, None
 
-    def _coerce_date(self, text: str) -> str | None:
-        """Handle the unambiguous rewrites only.
+    def _coerce_date(self, text: str, date_order: str | None = None) -> str | None:
+        """Rewrite a written date as YYYY-MM-DD, or refuse.
 
-        Deliberately refuses 01/02/2024: it is 1 February or 2 January depending
-        on where the document came from, and guessing silently corrupts data.
-        A repair round that asks the model is the correct cost here.
+        `01/02/2024` is 1 February or 2 January depending on where the document
+        came from. Without `date_order` it stays refused and costs a repair
+        round, which is the correct price: guessing silently corrupts data. The
+        rules live in `dates`, because grounding has to read a date back the
+        same way this wrote it.
         """
-        match = re.fullmatch(r"(\d{4})[/.](\d{1,2})[/.](\d{1,2})", text)
-        if match:
-            year, month, day = match.groups()
-            return year + "-" + month.zfill(2) + "-" + day.zfill(2)
-        names = [
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
-        ]
-        months = {name: index for index, name in enumerate(names, start=1)}
-        # Documents write "Mar 16, 2024" far more often than "March 16, 2024",
-        # and the full-name-only lookup silently failed on every abbreviation.
-        months.update({name[:3]: index for index, name in enumerate(names, start=1)})
-        match = re.fullmatch(
-            r"(\d{1,2})\s+([A-Za-z]+),?\s+(\d{4})", text
-        ) or re.fullmatch(r"([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})", text)
-        if match:
-            groups = list(match.groups())
-            if groups[0].isdigit():
-                day, month_name, year = groups
-            else:
-                month_name, day, year = groups
-            lowered = month_name.lower().rstrip('.')
-            month = months.get(lowered) or months.get(lowered[:3])
-            if month:
-                return year + "-" + str(month).zfill(2) + "-" + day.zfill(2)
-        return None
+        return coerce_date(text, date_order)
 
     # --- grounding --------------------------------------------------------
 
-    def _ground(
+    def _grounder(
+        self,
+        segments: Sequence[tuple[str, Provenance | None]],
+        cfg: ExtractionConfig,
+    ) -> Grounder:
+        return Grounder(
+            segments,
+            words=self._words,
+            date_order=cfg.date_order,
+            ocr_confidence=cfg.ocr_confidence_threshold,
+        )
+
+    def _ground_all(
         self,
         data: Mapping[str, Any],
         schema: ExtractionSchema,
         segments: Sequence[tuple[str, Provenance | None]],
-    ) -> list[FieldResult]:
-        # Two views of each passage: as written, and with currency and thousands
-        # separators removed. Without the second, a model correctly returning
-        # 1240.5 for a document saying "$1,240.50" is reported as fabricated —
-        # which would make the grounding signal noise exactly where it matters.
-        haystacks = [
-            (_normalise(text), _NUMBER_NOISE.sub("", _normalise(text)), prov, text)
-            for text, prov in segments
-        ]
-        results: list[FieldResult] = []
-        for spec in schema.fields:
-            value = data.get(spec.name)
-            if value is None:
-                results.append(FieldResult(spec.name, None, grounded=False))
-                continue
-            prov, matched = self._locate(value, haystacks)
-            results.append(
-                FieldResult(
-                    name=spec.name,
-                    value=value,
-                    grounded=prov is not None or matched != "",
-                    provenance=prov,
-                    matched_text=matched,
-                )
-            )
-        return results
+        cfg: ExtractionConfig,
+    ) -> tuple[list[FieldResult], list[tuple[FieldResult, FieldSpec]]]:
+        """Ground every value in the result.
 
-    def _locate(
+        Returns the top-level fields (unchanged shape, for every existing
+        caller) and every scalar leaf paired with its spec. The pairing is
+        internal: the grounding-issue rules need a leaf's declared type, and a
+        `FieldResult` deliberately does not carry one.
+        """
+        grounder = self._grounder(segments, cfg)
+        claimed: set[int] = set()
+        fields: list[FieldResult] = []
+        leaves: list[tuple[FieldResult, FieldSpec]] = []
+        for spec in schema.fields:
+            result, found = self._ground_value(
+                data.get(spec.name), spec, grounder, spec.name, None, claimed
+            )
+            fields.append(result)
+            leaves.extend(found)
+        return fields, leaves
+
+    def _ground_value(
         self,
         value: Any,
-        haystacks: Sequence[tuple[str, str, Provenance | None, str]],
-    ) -> tuple[Provenance | None, str]:
-        """Find where a value appears in the source.
+        spec: FieldSpec,
+        grounder: Grounder,
+        path: str,
+        line: BBox | None,
+        claimed: set[int],
+    ) -> tuple[FieldResult, list[tuple[FieldResult, FieldSpec]]]:
+        if spec.type is FieldType.OBJECT:
+            return self._ground_object(value, spec, grounder, path, line, claimed)
+        if spec.type is FieldType.ARRAY:
+            return self._ground_array(value, spec, grounder, path, line, claimed)
+        return self._ground_scalar(value, spec, grounder, path, line, claimed)
 
-        Numbers are matched against the separator-stripped view and in several
-        written forms, because '40', '40.0' and '40.00' are the same fact and a
-        document picks whichever it likes. Booleans are never located: 'true'
-        appears in prose constantly and would ground every boolean field
-        spuriously. Containers are not located either — a list's groundedness is
-        the union of its elements', and one box for the whole list would be a
-        fiction.
+    def _ground_scalar(
+        self,
+        value: Any,
+        spec: FieldSpec,
+        grounder: Grounder,
+        path: str,
+        line: BBox | None,
+        claimed: set[int],
+    ) -> tuple[FieldResult, list[tuple[FieldResult, FieldSpec]]]:
+        if value is None:
+            result = FieldResult(
+                spec.name, None, grounded=False, path=path, match=MatchClass.NOT_CHECKED
+            )
+            return result, [(result, spec)]
+        found = grounder.locate(value, spec.type, line=line, exclude=claimed)
+        if found.start >= 0:
+            # One token is evidence for one value. Without this, row 0's
+            # `amount` grounds on row 0's identical `unit_price` and the box
+            # points at the wrong column - which reads as correct.
+            claimed.update(range(found.start, found.start + found.length))
+        result = self._result(spec.name, value, path, found)
+        return result, [(result, spec)]
+
+    def _ground_object(
+        self,
+        value: Any,
+        spec: FieldSpec,
+        grounder: Grounder,
+        path: str,
+        line: BBox | None,
+        claimed: set[int],
+    ) -> tuple[FieldResult, list[tuple[FieldResult, FieldSpec]]]:
+        container = FieldResult(
+            spec.name, value, grounded=False, path=path, match=MatchClass.NOT_CHECKED
+        )
+        if not isinstance(value, Mapping):
+            return container, []
+        leaves = self._ground_row(value, spec.fields, grounder, path, line, claimed)
+        return container, leaves
+
+    def _ground_array(
+        self,
+        value: Any,
+        spec: FieldSpec,
+        grounder: Grounder,
+        path: str,
+        line: BBox | None,
+        claimed: set[int],
+    ) -> tuple[FieldResult, list[tuple[FieldResult, FieldSpec]]]:
+        """Ground every cell of a table, which the previous version never did.
+
+        An array's own location is not a thing: one box around a 30-row table
+        is a fiction. Its *elements* have locations, and those are what a
+        reviewer needs.
         """
-        if isinstance(value, bool):
-            return None, ""
+        container = FieldResult(
+            spec.name, value, grounded=False, path=path, match=MatchClass.NOT_CHECKED
+        )
+        if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+            return container, []
 
-        if isinstance(value, (int, float)):
-            numeric_needles = {_normalise(value)}
-            if float(value) == int(value):
-                numeric_needles.add(str(int(value)))
-                numeric_needles.add(format(float(value), ".2f"))
+        leaves: list[tuple[FieldResult, FieldSpec]] = []
+        for index, item in enumerate(value):
+            item_path = path + "[" + str(index) + "]"
+            if spec.fields:
+                if not isinstance(item, Mapping):
+                    continue
+                leaves.extend(
+                    self._ground_row(
+                        item, spec.fields, grounder, item_path, line, claimed
+                    )
+                )
             else:
-                numeric_needles.add(format(float(value), ".2f"))
-                numeric_needles.add(str(value).rstrip("0").rstrip("."))
-            for _, numeric, prov, original in haystacks:
-                for needle in numeric_needles:
-                    if needle and needle in numeric:
-                        return prov, original[:200]
-            return None, ""
+                element = FieldSpec(
+                    name=spec.name, type=spec.item_type or FieldType.STRING
+                )
+                result, found = self._ground_scalar(
+                    item, element, grounder, item_path, line, claimed
+                )
+                leaves.extend(found)
+        return container, leaves
 
-        if isinstance(value, str):
-            token = _normalise(value)
-            if len(token) < 2:
-                return None, ""
-            for haystack, _, prov, original in haystacks:
-                if token in haystack:
-                    return prov, original[:200]
-            return None, ""
+    def _ground_row(
+        self,
+        row: Mapping[str, Any],
+        specs: Sequence[FieldSpec],
+        grounder: Grounder,
+        path: str,
+        line: BBox | None,
+        claimed: set[int],
+    ) -> list[tuple[FieldResult, FieldSpec]]:
+        """Ground one row's cells, anchored on its most distinctive string.
 
-        return None, ""
+        Row locality is the difference between evidence and decoration. A
+        `quantity` of 1 appears in five rows of the fixture; without an anchor
+        it grounds on the first and the box points at the wrong row, which is
+        worse than no box because it looks right. So the longest string cell -
+        a description, in practice - is grounded first and its line becomes the
+        only place the other cells may match.
+        """
+        anchor_spec = self._row_anchor(row, specs)
+        found: dict[str, list[tuple[FieldResult, FieldSpec]]] = {}
+
+        def ground(spec: FieldSpec, current: BBox | None) -> FieldResult:
+            result, leaves = self._ground_value(
+                row.get(spec.name),
+                spec,
+                grounder,
+                path + "." + spec.name,
+                current,
+                claimed,
+            )
+            found[spec.name] = leaves
+            return result
+
+        row_line = line
+        if anchor_spec is not None:
+            anchor = ground(anchor_spec, line)
+            if anchor.evidence and anchor.evidence[0].bbox is not None:
+                row_line = anchor.evidence[0].bbox
+
+        for spec in specs:
+            if spec.name not in found:
+                ground(spec, row_line)
+
+        # Emit in schema order, not in the order they were grounded.
+        return [leaf for spec in specs for leaf in found.get(spec.name, [])]
+
+    @staticmethod
+    def _row_anchor(row: Mapping[str, Any], specs: Sequence[FieldSpec]) -> FieldSpec | None:
+        """The row's most distinctive cell: the longest string it states.
+
+        A description is far less likely than a quantity or a price to repeat
+        elsewhere on the page, so it is the cell whose match can be trusted to
+        identify the row rather than merely to exist.
+        """
+        best: FieldSpec | None = None
+        best_length = 0
+        for spec in specs:
+            if spec.type is not FieldType.STRING:
+                continue
+            value = row.get(spec.name)
+            if not isinstance(value, str):
+                continue
+            length = len(" ".join(value.split()))
+            if length > best_length:
+                best, best_length = spec, length
+        return best if best_length >= 3 else None
+
+    @staticmethod
+    def _result(name: str, value: Any, path: str, found: Match) -> FieldResult:
+        evidence: list[Evidence] = list(found.evidence)
+        provenance = evidence[0].as_provenance() if evidence else None
+        return FieldResult(
+            name=name,
+            value=value,
+            grounded=found.grounded,
+            provenance=provenance,
+            matched_text=evidence[0].text if evidence else "",
+            path=path,
+            match=found.match,
+            evidence=evidence,
+        )
 
     def _grounding_issues(
-        self,
-        data: Mapping[str, Any],
-        schema: ExtractionSchema,
-        segments: Sequence[tuple[str, Provenance | None]],
+        self, leaves: Sequence[tuple[FieldResult, FieldSpec]]
     ) -> list[ValidationIssue]:
         """Turn ungrounded values into repairable issues — except where the
         schema itself asked for a normalised form.
@@ -654,23 +817,26 @@ class ExtractionComponent:
         Strings and numbers stay in scope, and those are where fabrication
         actually happens.
         """
-        exempt = {FieldType.DATE, FieldType.BOOLEAN, FieldType.OBJECT, FieldType.ARRAY}
-        checkable = {f.name for f in schema.fields if f.type not in exempt}
         issues: list[ValidationIssue] = []
-        for result in self._ground(data, schema, segments):
-            if (
-                result.name in checkable
-                and result.value is not None
-                and not result.grounded
-            ):
-                issues.append(
-                    ValidationIssue(
-                        result.name,
-                        "value does not appear in the document; quote it exactly"
-                        " or return null",
-                        result.value,
-                    )
+        for result, spec in leaves:
+            if spec.type in _GROUNDING_EXEMPT or result.value is None:
+                continue
+            if result.grounded or result.match is MatchClass.NOT_CHECKED:
+                continue
+            detail = (
+                "value does not appear in the document; quote it exactly"
+                " or return null"
+            )
+            if result.match is MatchClass.FUZZY_OCR and result.evidence:
+                detail = (
+                    "value does not appear in the document; the nearest word is"
+                    " '"
+                    + result.evidence[0].text
+                    + "', read with low confidence"
                 )
+            issues.append(
+                ValidationIssue(result.path or result.name, detail, result.value)
+            )
         return issues
 
 

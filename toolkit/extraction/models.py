@@ -10,9 +10,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from ..core.models import Provenance, Usage
+from ..core.models import BBox, Provenance, Usage, WordSource
 
 
 class FieldType(str, Enum):
@@ -23,6 +23,12 @@ class FieldType(str, Enum):
     DATE = "date"
     """ISO 8601 date (YYYY-MM-DD). Kept distinct from STRING because a date is
     the field type models most often return in a format nobody asked for."""
+    DECIMAL = "decimal"
+    """Exact decimal, coerced to `decimal.Decimal`. Distinct from NUMBER because
+    a float cannot hold 1240.50: thirty amounts summed as floats disagree with
+    the stated subtotal, and the disagreement stays invisible until someone
+    reconciles. Domain-neutral on purpose - this is a number with exact decimal
+    arithmetic, not a currency type."""
     ARRAY = "array"
     OBJECT = "object"
 
@@ -171,6 +177,60 @@ def _schema_from_json_schema(raw: Mapping[str, Any], name: str) -> ExtractionSch
     )
 
 
+class MatchClass(str, Enum):
+    """How a value relates to the document, which is more useful than a bool.
+
+    `grounded` collapses five different situations into one bit. A value that
+    appeared verbatim and a value that appeared as "MYR 6,511.05" when the model
+    said 6511.05 are both found, but only one is quotable; a value one OCR slip
+    away from a page word is a different problem again from one that is simply
+    not there.
+
+    `derived` is absent on purpose. Whether a total was legitimately computed
+    rather than read is a question about the caller's schema, not about the
+    document, so the application decides it.
+    """
+
+    EXACT = "exact"
+    """Byte-identical to the document's own words."""
+    NORMALIZED = "normalized"
+    """The same fact written differently: numeric or date equivalence, case or
+    punctuation."""
+    FUZZY_OCR = "fuzzy_ocr"
+    """One edit from a low-confidence OCR word. Reported as **not** grounded:
+    it is the likeliest explanation of a near miss, not evidence."""
+    NOT_FOUND = "not_found"
+    """Searched for and absent. This is the fabrication signal."""
+    NOT_CHECKED = "not_checked"
+    """Never searched for: booleans ('true' appears in prose constantly) and
+    containers (a list's location is the union of its elements', and one box for
+    the whole list would be a fiction)."""
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """One place where the document says what the model claims it says.
+
+    The merged box of the matched words, not the box of the block containing
+    them: a value read from row 23 of a 30-row table has to be pointable at row
+    23. `min_confidence` is the weakest OCR word in the run, because a run is
+    only as trustworthy as its worst character.
+    """
+
+    page: int
+    bbox: BBox | None = None
+    words: Sequence[str] = field(default_factory=list)
+    source: WordSource = WordSource.TEXT_LAYER
+    min_confidence: float | None = None
+
+    @property
+    def text(self) -> str:
+        return " ".join(self.words)
+
+    def as_provenance(self) -> Provenance:
+        return Provenance(page=self.page, bbox=self.bbox)
+
+
 @dataclass(frozen=True)
 class ValidationIssue:
     path: str
@@ -197,6 +257,14 @@ class FieldResult:
     every fabricated value lands in it."""
     provenance: Provenance | None = None
     matched_text: str = ""
+    path: str = ""
+    """Dotted path to this value, e.g. `line_items[3].amount`. A top-level field
+    carries its own name."""
+    match: MatchClass = MatchClass.NOT_CHECKED
+    """Why `grounded` is what it is. Added alongside `grounded` rather than
+    replacing it, so every existing caller keeps working."""
+    evidence: Sequence[Evidence] = field(default_factory=list)
+    """Where the value was found. Empty for `not_found` and `not_checked`."""
 
 
 @dataclass
@@ -216,10 +284,23 @@ class ExtractionConfig:
     coerce: bool = True
     """Accept '40' for an integer and 'yes' for a boolean. Models return strings;
     refusing them wastes a repair round on a problem you can solve locally."""
+    date_order: Literal["DMY", "MDY", "YMD"] | None = None
+    """Which convention this document writes dates in. `03/10/2026` is 3 October
+    in Kuala Lumpur and 10 March in Chicago, and nothing on the page
+    distinguishes them. With no hint an ambiguous date stays a validation issue,
+    which is the only honest default. The hint is used twice: to coerce the
+    value, and to ground an ISO date against the page's own spelling."""
+    ocr_confidence_threshold: float = 0.75
+    """Below this, an OCR word one edit away from the value is reported as
+    `fuzzy_ocr` rather than as a plain miss."""
 
     def __post_init__(self) -> None:
         if self.max_repairs < 0:
             raise ValueError("max_repairs must be non-negative")
+        if self.date_order is not None and self.date_order not in ("DMY", "MDY", "YMD"):
+            raise ValueError("date_order must be DMY, MDY, YMD or None")
+        if not 0.0 <= self.ocr_confidence_threshold <= 1.0:
+            raise ValueError("ocr_confidence_threshold must be within [0, 1]")
 
 
 @dataclass
@@ -240,6 +321,16 @@ class ExtractionResult:
     attempts: int
     usage: Usage = field(default_factory=Usage)
     raw_responses: Sequence[str] = field(default_factory=list)
+    leaves: Sequence[FieldResult] = field(default_factory=list)
+    """Every scalar in the result, with its path - including the cells inside
+    arrays of objects, which `fields` cannot represent. This is the list worth
+    reviewing: a 30-row table is one container field and 120 leaves."""
+    truncated: bool = False
+    """True when the document did not fit in `context_char_limit`, so the model
+    never saw all of it. Deliberately not a validation issue: a repair round
+    cannot recover text that was never sent."""
+    warnings: Sequence[str] = field(default_factory=list)
+    """Problems with the run itself rather than with the data."""
 
     @property
     def valid(self) -> bool:
@@ -248,6 +339,25 @@ class ExtractionResult:
     @property
     def ungrounded(self) -> list[FieldResult]:
         return [f for f in self.fields if not f.grounded and f.value is not None]
+
+    @property
+    def ungrounded_paths(self) -> list[str]:
+        """Paths of every leaf that was searched for and not found.
+
+        Excludes `not_checked`: a boolean nobody looked for is not a
+        fabrication signal, and mixing the two in one list is what makes a
+        grounding report get ignored.
+        """
+        return [
+            leaf.path
+            for leaf in self.leaves
+            if leaf.value is not None
+            and not leaf.grounded
+            and leaf.match is not MatchClass.NOT_CHECKED
+        ]
+
+    def leaf_map(self) -> dict[str, FieldResult]:
+        return {leaf.path: leaf for leaf in self.leaves}
 
     def field_map(self) -> dict[str, FieldResult]:
         return {f.name: f for f in self.fields}

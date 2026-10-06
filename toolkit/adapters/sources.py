@@ -308,12 +308,12 @@ class PdfPlumberSource:
                 rotated_glyphs += sum(
                     1 for ch in page.chars if not ch.get("upright", True)
                 )
-                words = upright_page.extract_words(
+                raw_words = upright_page.extract_words(
                     extra_attrs=["size", "fontname"],
                     use_text_flow=False,
                     x_tolerance_ratio=self._x_tolerance_ratio,
                 )
-                for word in words:
+                for word in raw_words:
                     text = normalise_text(str(word.get("text", "")))
                     if not text:
                         continue

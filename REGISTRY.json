@@ -463,7 +463,7 @@
       "path": "toolkit/extraction",
       "layer": 2,
       "kind": "component",
-      "capability": "schema-driven extraction with a targeted repair loop and per-field provenance, plus multi-document splitting",
+      "capability": "schema-driven extraction with a targeted repair loop, exact-decimal values and word-level grounded evidence per field, plus multi-document splitting",
       "domains": [
         "01",
         "02",
@@ -478,16 +478,19 @@
         "ExtractionComponent",
         "DocumentSplitterComponent",
         "ExtractionSchema",
-        "FieldSpec"
+        "FieldSpec",
+        "MatchClass",
+        "Evidence"
       ],
       "maturity": "documented",
       "used_in_projects": [],
       "limitations": [
-        "one model call per attempt over the whole document",
-        "grounding is substring matching",
+        "one model call per attempt over the whole document; truncation is reported, not repaired",
+        "grounding needs word-level geometry for cell-precise evidence; without words it falls back to block boxes",
+        "row locality anchors on the most distinctive string cell, so a row with no distinctive string grounds without it",
         "splitter is heuristic and needs furniture classification"
       ],
-      "last_reviewed": "2026-10-01",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_extraction",
       "recipes": [
         "trustworthy_extraction"

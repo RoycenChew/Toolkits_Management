@@ -1,5 +1,8 @@
 from .component import ExtractionComponent, extract_json_object
+from .dates import coerce_date, date_variants
+from .grounding import Grounder
 from .models import (
+    Evidence,
     ExtractionConfig,
     ExtractionRequest,
     ExtractionResult,
@@ -7,14 +10,17 @@ from .models import (
     FieldResult,
     FieldSpec,
     FieldType,
+    MatchClass,
     Segment,
     SplitResult,
     ValidationIssue,
 )
+from .numbers import parse_decimal, parse_number
 from .splitter import DocumentSplitterComponent
 
 __all__ = [
     "DocumentSplitterComponent",
+    "Evidence",
     "ExtractionComponent",
     "ExtractionConfig",
     "ExtractionRequest",
@@ -23,8 +29,14 @@ __all__ = [
     "FieldResult",
     "FieldSpec",
     "FieldType",
+    "Grounder",
+    "MatchClass",
     "Segment",
     "SplitResult",
     "ValidationIssue",
+    "coerce_date",
+    "date_variants",
     "extract_json_object",
+    "parse_decimal",
+    "parse_number",
 ]
