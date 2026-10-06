@@ -64,6 +64,8 @@ from toolkit.entity_resolution import (  # noqa: E402
     FieldComparison,
     ResolutionConfig,
     ResolutionRequest,
+    date_comparator,
+    numeric_similarity,
 )
 from toolkit.evaluation import (  # noqa: E402
     EvalCase,
@@ -298,11 +300,28 @@ def unit_entity_resolution() -> None:
         ],
         match_threshold=0.85,
     )
-    result = EntityResolutionComponent().execute(ResolutionRequest(records, config))
+    component = EntityResolutionComponent()
+    result = component.execute(ResolutionRequest(records, config))
     for cluster in result.clusters:
         out("  cluster %d %s cohesion=%.2f\n" % (
             cluster.cluster_id, list(cluster.record_ids), cluster.cohesion))
     out("compared %d pairs, avoided %d\n" % (result.pairs_compared, result.pairs_avoided))
+
+    # The runtime question: one new record against candidates, with the weights
+    # already learned. No EM, because a batch of one has nothing to estimate from.
+    incoming = {"name": "Bob Smith", "city": "London"}
+    matches = component.score_record(incoming, records, config, result.model, "new")
+    best = matches[0]
+    out("score_record best=%s weight=%+.1f bits pattern=%s\n" % (
+        best.right, best.match_weight, dict(best.pattern)))
+
+    # Numbers and dates are not strings: affine-gap scores 100 against 1000 high
+    # because they share three characters, and two dates a day apart share none.
+    out("numeric  1240.50 vs 1,240.50 -> %.2f | 1000 vs 1200 -> %.2f\n" % (
+        numeric_similarity("1240.50", "1,240.50"), numeric_similarity("1000", "1200")))
+    week = date_comparator(window_days=7)
+    out("date     31 Jan vs 1 Feb -> %.2f | vs 1 Mar -> %.2f\n" % (
+        week("2026-01-31", "2026-02-01"), week("2026-01-31", "2026-03-01")))
 
 
 def unit_guardrails() -> None:

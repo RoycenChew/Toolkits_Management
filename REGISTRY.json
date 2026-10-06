@@ -398,7 +398,7 @@
       "path": "toolkit/entity_resolution",
       "layer": 2,
       "kind": "component",
-      "capability": "unsupervised record matching: learned blocking, Fellegi-Sunter with EM, clustering",
+      "capability": "unsupervised record matching: learned blocking, Fellegi-Sunter with EM, clustering, and single-record scoring against a kept model",
       "domains": [
         "03",
         "07"
@@ -410,16 +410,21 @@
         "EntityResolutionComponent",
         "ResolutionRequest",
         "FieldComparison",
-        "affine_gap_similarity"
+        "affine_gap_similarity",
+        "numeric_similarity",
+        "date_comparator",
+        "default_model"
       ],
       "maturity": "documented",
       "used_in_projects": [],
       "limitations": [
         "assumes conditional independence between fields",
         "blocking is in-memory",
-        "average linkage is cubic in a region"
+        "average linkage is cubic in a region",
+        "score_record does no blocking: the caller chooses the candidates, and a model kept across data drift goes stale with nothing to say so",
+        "the date comparator refuses an ambiguous numeric date rather than guessing the day/month order, because a record carries no document-level hint"
       ],
-      "last_reviewed": "2026-10-01",
+      "last_reviewed": "2026-10-06",
       "example": "examples/cookbook.py::unit_entity_resolution",
       "recipes": [
         "reconcile_records"

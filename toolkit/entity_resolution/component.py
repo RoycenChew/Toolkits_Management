@@ -36,6 +36,12 @@ from .models import (
 )
 
 NO_MATCH_LEVEL = "none"
+
+_DEFAULT_M_TOP = 0.85
+"""Untrained P(strongest level | match). Records that match usually agree on a
+field; 0.85 says "usually" without claiming to know how often."""
+_DEFAULT_U_TOP = 0.85
+"""Untrained P(no level reached | non-match), the mirror of the above."""
 """The implicit lowest comparison level: the field agreed at no threshold."""
 
 _EPS = 1e-9
@@ -227,6 +233,79 @@ class EntityResolutionComponent:
             pairs_compared=len(pairs),
             pairs_avoided=max(0, full - len(pairs)),
         )
+
+    # --- scoring one record ----------------------------------------------
+
+    def score_record(
+        self,
+        record: Record,
+        candidates: Mapping[str, Record],
+        config: ResolutionConfig,
+        model: TrainedModel,
+        record_id: str = "query",
+    ) -> list[ScoredPair]:
+        """Score one record against candidates with weights that already exist.
+
+        `execute` resolves a batch, and its EM step is what makes it a batch
+        operation: m and u probabilities are estimated from the distribution of
+        comparison patterns across many pairs. The question an application asks
+        at runtime is the other one - "here is one new record, which of these
+        is it?" - and EM over a batch of one has nothing to estimate from. It
+        would return the seed parameters while looking like a measurement,
+        which is worse than refusing.
+
+        So the model is a parameter. Train it once with `execute` and keep it,
+        or build fixed weights with `default_model` when there is nothing to
+        train on yet. The weight arithmetic is the same function the batch path
+        uses, so a cached model cannot quietly come to mean something else.
+
+        `candidates` may include `record_id` itself - passing the whole corpus
+        is the obvious call site - and that pair is skipped, because a record
+        matching itself at probability 1.0 would head every result and say
+        nothing.
+        """
+        if not config.comparisons:
+            raise ValueError("config.comparisons must not be empty")
+        if model is None:
+            raise ValueError(
+                "score_record needs a TrainedModel; train one with execute() or"
+                " build fixed weights with default_model(config)"
+            )
+        self._check_model_covers(config, model)
+
+        scored = [
+            self._score(
+                record_id,
+                candidate_id,
+                self._pattern(record, candidate, config),
+                model,
+            )
+            for candidate_id, candidate in candidates.items()
+            if candidate_id != record_id
+        ]
+        scored.sort(key=lambda s: (-s.match_probability, s.right))
+        return scored
+
+    @staticmethod
+    def _check_model_covers(config: ResolutionConfig, model: TrainedModel) -> None:
+        """Refuse a model that has never seen one of the configured fields.
+
+        `_score` falls back to epsilon for an unknown field, and epsilon over
+        epsilon is 1, which contributes exactly zero bits. So adding a
+        comparison and forgetting to retrain would score as if the new field
+        did not exist, and look like it worked.
+        """
+        missing = [
+            c.field
+            for c in config.comparisons
+            if c.field not in model.m_probabilities or c.field not in model.u_probabilities
+        ]
+        if missing:
+            raise ValueError(
+                "this model has no weights for: "
+                + ", ".join(sorted(missing))
+                + "; retrain it with execute() or rebuild it with default_model()"
+            )
 
     # --- blocking --------------------------------------------------------
 
@@ -589,9 +668,50 @@ class EntityResolutionComponent:
         return clusters
 
 
+def default_model(
+    config: ResolutionConfig, match_rate: float = 0.01
+) -> TrainedModel:
+    """Fellegi-Sunter weights with nothing trained, for the first run.
+
+    A new deployment has no corpus to learn from, and waiting for one means
+    shipping nothing. These are the same seed parameters the EM step starts
+    from - most of the m mass on the strongest level, most of the u mass on
+    `NO_MATCH_LEVEL` - which is to say: a match usually agrees on a field, a
+    non-match usually does not. That is weak but not arbitrary, and it is
+    directionally right on every field it is given.
+
+    `iterations=0` and `converged=False` are the honest record that these were
+    asserted rather than measured. Retrain with `execute` as soon as there is a
+    batch to retrain on.
+    """
+    if not config.comparisons:
+        raise ValueError("config.comparisons must not be empty")
+    if not 0.0 < match_rate < 1.0:
+        raise ValueError("match_rate must be strictly between 0 and 1")
+
+    component = EntityResolutionComponent()
+    levels = component._all_levels(config)
+    return TrainedModel(
+        lambda_prior=match_rate,
+        m_probabilities={
+            field: component._seed(field_levels, _DEFAULT_M_TOP)
+            for field, field_levels in levels.items()
+        },
+        u_probabilities={
+            # Reversed: for a non-match the mass belongs on NO_MATCH_LEVEL,
+            # which `_all_levels` puts last.
+            field: component._seed(list(reversed(field_levels)), _DEFAULT_U_TOP)
+            for field, field_levels in levels.items()
+        },
+        iterations=0,
+        converged=False,
+    )
+
+
 __all__ = [
     "EntityResolutionComponent",
     "affine_gap_distance",
+    "default_model",
     "affine_gap_similarity",
     "default_predicates",
     "NO_MATCH_LEVEL",

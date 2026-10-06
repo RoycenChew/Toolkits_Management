@@ -1,8 +1,18 @@
+from .comparators import (
+    DEFAULT_DATE_WINDOW_DAYS,
+    date_comparator,
+    date_similarity,
+    days_apart,
+    numeric_comparator,
+    numeric_similarity,
+    parse_date,
+)
 from .component import (
     NO_MATCH_LEVEL,
     EntityResolutionComponent,
     affine_gap_distance,
     affine_gap_similarity,
+    default_model,
     default_predicates,
 )
 from .models import (
@@ -19,11 +29,19 @@ from .models import (
 )
 
 __all__ = [
+    "DEFAULT_DATE_WINDOW_DAYS",
     "EntityResolutionComponent",
     "NO_MATCH_LEVEL",
     "affine_gap_distance",
     "affine_gap_similarity",
+    "date_comparator",
+    "date_similarity",
+    "days_apart",
+    "default_model",
     "default_predicates",
+    "numeric_comparator",
+    "numeric_similarity",
+    "parse_date",
     "CandidatePair",
     "ComparisonLevel",
     "EntityCluster",
