@@ -7,7 +7,7 @@
 > and bring-your-own-key generation with no vendor SDK.
 >
 > It has been run against real input once: 49 uncurated arXiv PDFs, which found
-> nine defects that 478 tests and a hand-built hostile corpus had all missed.
+> nine defects that 482 tests and a hand-built hostile corpus had all missed.
 > See [`validation/paper_triage/FINDINGS.md`](../validation/paper_triage/FINDINGS.md).
 > Every unit is still `documented` rather than `production_ready`; that gate
 > needs use in a real project, not a test count.

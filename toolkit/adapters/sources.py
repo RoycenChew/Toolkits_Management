@@ -651,7 +651,14 @@ class TesseractSource:
             completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
                 command,
                 capture_output=True,
-                text=True,
+                # UTF-8 explicitly, never `text=True`. That decodes with the
+                # *locale* encoding - cp1252 on a default Windows install -
+                # while tesseract emits UTF-8, so a euro sign, a smart quote or
+                # the Chinese that appears on Malaysian receipts killed the
+                # whole page with a UnicodeDecodeError. Measured on a real
+                # document: byte 0x9d, undefined in cp1252.
+                encoding="utf-8",
+                errors="replace",
                 timeout=self._timeout,
                 check=False,
             )
@@ -683,6 +690,8 @@ class TesseractSource:
     ) -> list[tuple[TextSpan, float | None]]:
         """Turn tesseract's TSV into layout spans in PDF points.
 
+        `output` may be None: see `_ocr_page`.
+
         Columns are level, page, block, paragraph, line, word, left, top,
         width, height, conf, text. Pixel boxes are scaled by 72/dpi, which is
         the inverse of the render, so a box lands back on the page geometry the
@@ -690,7 +699,10 @@ class TesseractSource:
         """
         scale = 72.0 / self._dpi
         rows: list[tuple[TextSpan, float | None]] = []
-        lines = output.splitlines()
+        # A page with no readable output is a page with no words, whatever the
+        # reason - a blank scan, a child that wrote nothing, a decode that
+        # failed. A batch of a thousand documents must not stop on one.
+        lines = (output or "").splitlines()
         for line in lines[1:] if lines else []:
             parts = line.split("\t")
             if len(parts) < 12 or parts[0] != _TSV_WORD_LEVEL:

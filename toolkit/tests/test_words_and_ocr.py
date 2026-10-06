@@ -304,3 +304,74 @@ def test_a_per_page_timeout_is_enforced() -> None:
     with pytest.raises(ScreeningRejected) as caught:
         source.load(invoice_pdf().path)
     assert caught.value.reason.value == "too_slow"
+
+# --------------------------------------------------------------------------
+# TK-2 defect found on the real corpus (Phase 1)
+# --------------------------------------------------------------------------
+
+
+def test_ocr_output_is_decoded_as_utf8_not_the_locale_encoding(monkeypatch) -> None:
+    """Measured on a real receipt: OCR died with
+
+        UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d
+
+    `subprocess.run(..., text=True)` decodes the child's output with the
+    *locale* encoding, which is cp1252 on a default Windows install - the
+    owner's machine. Tesseract emits UTF-8 by design, so any document holding a
+    character outside Latin-1 killed the whole page: a euro sign, a smart
+    quote, or the Chinese that appears on Malaysian receipts routinely.
+
+    `errors="replace"` rather than strict, deliberately. One undecodable byte
+    should cost its own word, not the page, and a replacement character simply
+    fails to match during grounding - which is the correct outcome for a word
+    nobody can read.
+    """
+    import subprocess
+
+    tsv = (
+        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num"
+        "\tleft\ttop\twidth\theight\tconf\ttext\n"
+        "5\t1\t1\t1\t1\t1\t100\t200\t120\t30\t95.0\tTotal\n"
+        # The characters that broke it: a euro sign and a right double quote.
+        "5\t1\t1\t1\t1\t2\t230\t200\t90\t30\t91.0\t81,75\u20ac\n"
+        "5\t1\t1\t1\t1\t3\t330\t200\t60\t30\t88.0\tGr\u00fc\u00dfe\u201d\n"
+    )
+    seen = {}
+
+    class Completed:
+        returncode = 0
+        stdout = tsv
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        seen.update(kwargs)
+        seen["command"] = command
+        return Completed()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    source = TesseractSource()
+    rows = source._ocr_page("page.png", 1)
+
+    assert seen.get("encoding") == "utf-8", (
+        "the child's output must be decoded as UTF-8, not the locale encoding"
+    )
+    assert seen.get("errors") == "replace"
+    assert not seen.get("text"), "text=True would reintroduce the locale decode"
+
+    texts = [span.text for span, _ in rows]
+    assert "81,75\u20ac" in texts
+    assert any("Gr\u00fc\u00dfe" in t for t in texts)
+
+
+def test_no_ocr_output_is_an_empty_page_not_a_crash() -> None:
+    """The symptom the defect surfaced as: `None.splitlines()`.
+
+    Whatever the cause - a decode failure, a child that wrote nothing, a blank
+    page - a page with no readable output is a page with no words. A thousand
+    document batch must not stop on one.
+    """
+    source = TesseractSource()
+    assert source._parse_tsv("", 1) == []
+    assert source._parse_tsv(None, 1) == []
+    assert source._parse_tsv("level\tpage_num\n", 1) == []
