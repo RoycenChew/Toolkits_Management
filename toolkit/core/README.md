@@ -67,6 +67,9 @@ Not a component; it has no `execute()`. It is the vocabulary other units use.
 | `Chunk.chunk_id` | `doc_id#index` — a stable **slot**, so re-ingesting an edited document overwrites rather than orphaning. Content hash lives in metadata |
 | `Usage.__add__` | Summable so a pipeline can report a total; `cached` is the AND of both |
 | `Document.content_blocks()` | Excludes page furniture; the usual input to chunking |
+| `Word` | One token with page, box, source (`text_layer` or `ocr`) and a confidence in [0, 1] for OCR, None for text. Page is 1-based |
+| `Document.words` | The evidence layer, in the same reading order as the blocks. Empty means "no word-level evidence" (a source with no geometry), never "no text" |
+| `Document.page_sizes` | page -> (width, height) in bbox units, so a viewer can scale boxes onto a rendered page |
 
 ## Errors
 

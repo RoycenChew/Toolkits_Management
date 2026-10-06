@@ -254,7 +254,8 @@
         "Provenance",
         "BBox",
         "Usage",
-        "ScreeningLimits"
+        "ScreeningLimits",
+        "Word"
       ],
       "maturity": "documented",
       "used_in_projects": [

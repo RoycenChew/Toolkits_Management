@@ -26,7 +26,7 @@ from ..core.limits import (
     ScreeningRejected,
     ScreeningResult,
 )
-from ..core.models import BBox, Block, BlockType, Document, Provenance
+from ..core.models import BBox, Block, BlockType, Document, Provenance, Word, WordSource
 from ..core.text import normalise_text
 from ..doc_layout import (
     WORD_GAP_RATIO,
@@ -50,6 +50,41 @@ _LAYOUT_TO_CORE = {
 
 def _core_bbox(box: LayoutBBox) -> BBox:
     return BBox(box.x0, box.y0, box.x1, box.y1)
+
+
+def words_in_reading_order(
+    spans: Sequence[TextSpan],
+    layout_blocks: Sequence[Any],
+    source: WordSource,
+    confidences: Sequence[float | None] | None = None,
+) -> list[Word]:
+    """Turn layout input spans into `Word`s, ordered the way the blocks read.
+
+    `doc_layout` already decided reading order - columns, headers, lines - and
+    each block records which input spans it consumed. Following those indices
+    gives words the *same* order as the block text, which is what lets a value
+    found among the words be traced back to the block that contains it. Spans
+    no block claimed (deduplicated overlaps) are dropped: they are duplicates,
+    not content.
+    """
+    words: list[Word] = []
+    seen: set[int] = set()
+    for block in layout_blocks:
+        for index in block.provenance.span_indices:
+            if index in seen or index >= len(spans):
+                continue
+            seen.add(index)
+            span = spans[index]
+            words.append(
+                Word(
+                    text=span.text,
+                    page=span.page,
+                    bbox=_core_bbox(span.bbox),
+                    confidence=confidences[index] if confidences is not None else None,
+                    source=source,
+                )
+            )
+    return words
 
 
 def _screen_file(path: str, limits: ScreeningLimits) -> ScreeningResult:
@@ -326,13 +361,17 @@ class PdfPlumberSource:
             )
             for block in result.blocks
         ]
+        words = words_in_reading_order(spans, result.blocks, WordSource.TEXT_LAYER)
         return Document(
             doc_id=Document.id_from_bytes(raw),
             blocks=blocks,
             source_uri=os.path.abspath(path),
             page_count=len(page_sizes),
+            words=words,
+            page_sizes=dict(page_sizes),
             metadata={
                 "source": "pdfplumber+doc_layout",
+                "word_count": len(words),
                 "body_font_size": result.body_font_size,
                 "columns_per_page": result.columns_per_page,
                 "spans_deduplicated": result.spans_deduplicated,
@@ -503,6 +542,7 @@ def load_document(
 
 
 __all__ = [
+    "words_in_reading_order",
     "DoclingSource",
     "PdfPlumberSource",
     "PlainTextSource",

@@ -133,6 +133,45 @@ class Block:
         return self.type in FURNITURE
 
 
+class WordSource(str, Enum):
+    """Where a word's text and geometry came from.
+
+    Evidence is only as good as its source: a text-layer word is the document's
+    own text, an OCR word is a reading of pixels and carries a confidence. A
+    consumer that shows evidence to a person should say which it is.
+    """
+
+    TEXT_LAYER = "text_layer"
+    OCR = "ocr"
+
+
+@dataclass(frozen=True)
+class Word:
+    """One word with its location: the evidence layer under the blocks.
+
+    Blocks say what a region *is* (a heading, a paragraph); words say exactly
+    where each token sits. A value extracted from a document can only be pointed
+    at precisely - one cell of a table, not the whole table - if words survive
+    parsing. Before this type existed, a 40-row line-item table reached
+    downstream code as one paragraph with one box.
+
+    `confidence` is in [0, 1] for OCR words and None for text-layer words, which
+    are the document's own characters and have nothing to be unsure about.
+    """
+
+    text: str
+    page: int
+    bbox: BBox
+    confidence: float | None = None
+    source: WordSource = WordSource.TEXT_LAYER
+
+    def __post_init__(self) -> None:
+        if self.page < 1:
+            raise ValueError("word page is 1-based")
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("word confidence must be within [0, 1]")
+
+
 @dataclass
 class Document:
     """A parsed document: ordered blocks plus where they came from.
@@ -140,6 +179,12 @@ class Document:
     `doc_id` should be stable across runs for the same input, because it is what
     a vector store row, a cache entry and a citation all key on. `from_bytes`
     derives one by content hash, which is the behaviour you almost always want.
+
+    `words` is the evidence layer, in reading order. Sources with geometry
+    populate it; sources without (plain text) leave it empty, and consumers must
+    treat an empty list as "no word-level evidence" rather than "no text".
+    `page_sizes` maps page -> (width, height) in the same units as every bbox,
+    so a viewer can scale boxes onto a rendered page.
     """
 
     doc_id: str
@@ -147,6 +192,12 @@ class Document:
     source_uri: str = ""
     page_count: int = 0
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    words: Sequence[Word] = field(default_factory=list)
+    page_sizes: Mapping[int, tuple[float, float]] = field(default_factory=dict)
+
+    def words_on(self, page: int) -> list[Word]:
+        """Words on one page, in reading order."""
+        return [w for w in self.words if w.page == page]
 
     @staticmethod
     def id_from_bytes(data: bytes, prefix: str = "doc") -> str:
@@ -261,4 +312,6 @@ __all__ = [
     "Provenance",
     "SearchHit",
     "Usage",
+    "Word",
+    "WordSource",
 ]

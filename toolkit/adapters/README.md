@@ -66,7 +66,7 @@ component — install the package. A missing optional package raises
 
 | Adapter | Worth knowing |
 |---|---|
-| `PdfPlumberSource` | Reads `top`/`bottom` (already y-down). Screens size **and page count** — a 2 KB file can declare 40,000 pages, so a size cap alone does not bound the work. Raises `AdapterError` naming OCR when there is no text layer |
+| `PdfPlumberSource` | Reads `top`/`bottom` (already y-down). Screens size **and page count** — a 2 KB file can declare 40,000 pages, so a size cap alone does not bound the work. Raises `AdapterError` naming OCR when there is no text layer. Keeps every word on `Document.words` with its own box, in block reading order |
 | `DoclingSource` | Traverses via `iterate_items()` or `.texts` because the API moved between versions. Normalises bbox to y-down by ordering rather than trusting field names. Screens size only |
 | `PlainTextSource` | Line-oriented, because Markdown needs no blank line after a heading — paragraph-first splitting silently destroyed every heading |
 | `HashingEmbedder` | `model_version` encodes dimension *and* trigram setting, so a config change is as detectable as a model change |

@@ -23,6 +23,8 @@ from .models import (
     Provenance,
     SearchHit,
     Usage,
+    Word,
+    WordSource,
 )
 from .text import dehyphenate, normalise_text
 
@@ -49,4 +51,6 @@ __all__ = [
     "ToolkitError",
     "Usage",
     "ValidationFailed",
+    "Word",
+    "WordSource",
 ]
