@@ -46,7 +46,7 @@ _CURRENCY = re.compile(
     # Symbols written against the digits, so no trailing word boundary: there
     # is none between the `M` and the `4` of `RM4,094.28`. The lookahead is
     # what keeps `RMS` and `ROOM12` from being read as numbers.
-    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[\d(])",
+    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[-\d(])",
     re.IGNORECASE,
 )
 

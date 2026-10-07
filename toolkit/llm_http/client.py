@@ -33,7 +33,7 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from ..core.errors import AdapterError, RateLimited
+from ..core.errors import AdapterError, PermanentFailure, RateLimited
 from ..core.models import Completion, Message, Usage
 from ..provider import ApiStyle, PriceBook, Provider, resolve
 
@@ -315,22 +315,30 @@ class HttpLLM:
         )
         label = self.provider.label
 
+        if status == 402:
+            raise PermanentFailure(
+                "%s refused the call for insufficient balance (HTTP 402). Top up"
+                " the account that issued the key in %s; retrying will not help,"
+                " because an empty balance does not refill between attempts.%s"
+                % (label, self.provider.source or "the environment",
+                   " " + detail if detail else "")
+            )
         if status in (401, 403):
-            raise AdapterError(
+            raise PermanentFailure(
                 "%s rejected the API key (HTTP %d). The key in %s may be invalid, "
                 "revoked, or for a different account.%s"
                 % (label, status, self.provider.source or "the environment",
                    " " + detail if detail else "")
             )
         if status == 404:
-            raise AdapterError(
+            raise PermanentFailure(
                 "%s has no model %r at %s (HTTP 404). Check the model name and the "
                 "base URL.%s"
                 % (label, self.provider.model, self.provider.endpoint,
                    " " + detail if detail else "")
             )
         if status == 400:
-            raise AdapterError(
+            raise PermanentFailure(
                 "%s rejected the request (HTTP 400): %s" % (label, detail or "no detail given")
             )
         if status in _RETRYABLE_STATUS:

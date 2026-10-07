@@ -24,7 +24,13 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-from ..core.errors import AdapterError, RateLimited, ToolkitError, ValidationFailed
+from ..core.errors import (
+    AdapterError,
+    PermanentFailure,
+    RateLimited,
+    ToolkitError,
+    ValidationFailed,
+)
 from ..core.models import Completion, Message, Usage
 
 
@@ -150,6 +156,13 @@ class GovernedLLM:
                 delay = exc.retry_after if exc.retry_after else self._backoff(attempt)
                 self._sleep(delay)
                 continue
+            except PermanentFailure:
+                # Caught before AdapterError, which it subclasses. A rejected
+                # key, an unknown model, a malformed request or an empty
+                # balance will fail identically next time, so the retries are
+                # pure waste and the loop would bury the real message behind
+                # "giving up after 3 attempts".
+                raise
             except AdapterError as exc:
                 last_error = exc
                 if attempt >= cfg.max_attempts:

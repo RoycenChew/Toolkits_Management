@@ -1,6 +1,7 @@
 from .errors import (
     AdapterError,
     MissingDependency,
+    PermanentFailure,
     RateLimited,
     ToolkitError,
     ValidationFailed,
@@ -47,6 +48,7 @@ __all__ = [
     "ImagePart",
     "Message",
     "MissingDependency",
+    "PermanentFailure",
     "Provenance",
     "RateLimited",
     "SearchHit",

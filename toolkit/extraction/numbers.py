@@ -17,7 +17,7 @@ _CURRENCY = re.compile(
     # Symbols written against the digits, so no trailing word boundary: there
     # is none between the `M` and the `4` of `RM4,094.28`. The lookahead is
     # what keeps `RMS` and `ROOM12` from being read as numbers.
-    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[\d(])",
+    r"|\b(?:rm|s\$|hk\$|a\$|nz\$|c\$)(?=\s*[-\d(])",
     re.IGNORECASE,
 )
 """Currency symbols and ISO codes, stripped before numeric parsing. The word
@@ -65,11 +65,14 @@ def normalise_number_text(raw: str) -> str | None:
             negative = not negative
             text = text[1:-1].strip()
         text = _CURRENCY.sub("", text).strip()
+        # The sign may sit on either side of the marker: "-RM310.00" and
+        # "RM-310.00" are both written. Stripping it inside the loop means the
+        # next pass can reach a marker that was hiding behind it.
+        if text.startswith("-"):
+            negative = not negative
+            text = text[1:].strip()
         if text == before:
             break
-    if text.startswith("-"):
-        negative = not negative
-        text = text[1:].strip()
     text = text.replace(" ", "").replace(" ", "").replace(" ", "")
     if not text:
         return None

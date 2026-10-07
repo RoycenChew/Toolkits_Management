@@ -25,7 +25,7 @@ for c in answer.citations:
 
 | | |
 |---|---|
-| **Tests** | 524 passing |
+| **Tests** | 549 passing |
 | **Type checking** | `mypy` clean across 47 source files |
 | **Coverage** | 94% of the library, floor enforced at 90% |
 | **Lint** | `ruff` clean |
@@ -621,7 +621,7 @@ repair loop · the cost/cache/governor layer · MinHash + LSH near-duplicate det
 ## Testing
 
 ```bash
-python -m pytest toolkit/tests -q          # 524 tests
+python -m pytest toolkit/tests -q          # 549 tests
 python -m ruff check toolkit examples      # lint
 python -m mypy toolkit                     # types, 42 files
 
@@ -832,7 +832,7 @@ feeling.
     ├── extraction_eval/           L4 extraction metrics, silent error rate
     ├── cli.py                     L4 ingest / ask / eval / inspect
     ├── __main__.py                `python -m toolkit` -> cli.main
-    └── tests/                     524 tests, seventeen suites
+    └── tests/                     549 tests, seventeen suites
 ```
 
 Every component directory carries its own `README.md` with architecture, input/output

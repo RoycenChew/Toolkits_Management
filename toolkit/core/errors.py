@@ -37,6 +37,23 @@ class AdapterError(ToolkitError):
     """A backend was reachable but failed or returned something unusable."""
 
 
+class PermanentFailure(AdapterError):
+    """A provider failure that will fail identically on a retry.
+
+    A subclass of `AdapterError`, so every existing handler keeps working, and
+    distinct so `governor` can stop retrying it. The measured case: a run died
+    with "giving up after 3 attempts: DeepSeek API error 402: Insufficient
+    Balance". An empty account does not fill itself between attempts, so two of
+    those three round trips were waste, and the retry loop hid the one fact
+    that mattered behind a generic message.
+
+    Use it for the configuration failures: a rejected key, an unknown model, a
+    malformed request, an exhausted balance. Anything that might succeed on a
+    second attempt - a timeout, a reset connection, a 503 - stays an ordinary
+    `AdapterError` and is still retried.
+    """
+
+
 class RateLimited(AdapterError):
     """The provider refused the call for rate or quota reasons.
 
@@ -58,6 +75,7 @@ class ValidationFailed(ToolkitError):
 
 
 __all__ = [
+    "PermanentFailure",
     "ToolkitError",
     "MissingDependency",
     "AdapterError",

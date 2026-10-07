@@ -54,6 +54,15 @@ def _transport(payload: dict):
     return transport
 
 
+def _transport_status(status: int, payload: dict):
+    """A transport that returns an arbitrary status, for classification tests."""
+
+    def transport(url, headers, body, timeout):
+        return status, json.dumps(payload)
+
+    return transport
+
+
 def _ok(prompt=1000, completion=2000) -> dict:
     return {
         "choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}],
@@ -436,3 +445,142 @@ def test_an_unpriced_live_call_still_trips_the_guard_after_replays() -> None:
         # Each distinct prompt is a real call; none of them reports a cost.
         for n in range(12):
             governed.complete([Message("user", "prompt %d" % n)])
+
+# --------------------------------------------------------------------------
+# Terminal failures must not be retried
+# --------------------------------------------------------------------------
+
+
+def test_an_empty_balance_is_terminal_and_says_so() -> None:
+    """Measured: a 175-document run died with
+
+        giving up after 3 attempts: DeepSeek API error 402: Insufficient Balance
+
+    Three attempts, because the governor retried. An empty account will not
+    fill itself between attempts, so every retry was a wasted round trip and
+    the message buried the one fact that mattered behind "API error 402".
+    """
+    from toolkit.core.errors import PermanentFailure
+
+    llm = HttpLLM(_deepseek(), transport=_transport_status(402, {
+        "error": {"message": "Insufficient Balance"}
+    }))
+    with pytest.raises(PermanentFailure) as caught:
+        llm.complete([Message("user", "hi")])
+    message = str(caught.value).lower()
+    assert "balance" in message
+    assert "top up" in message or "add credit" in message
+    # And it is still an AdapterError, so every existing handler keeps working.
+    from toolkit.core.errors import AdapterError as _AdapterError
+
+    assert isinstance(caught.value, _AdapterError)
+
+
+def test_the_governor_does_not_retry_a_permanent_failure() -> None:
+    """The defect behind the wasted attempts. A bad key, a missing model, a
+    malformed request and an empty balance will all fail identically on the
+    second try."""
+    from toolkit.core.errors import PermanentFailure
+
+    class Refusing:
+        model_version = "refusing:1"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            self.calls += 1
+            raise PermanentFailure("insufficient balance; top up the account")
+
+    inner = Refusing()
+    governed = GovernedLLM(inner, GovernorConfig(max_attempts=3))
+    with pytest.raises(PermanentFailure):
+        governed.complete([Message("user", "x")])
+    assert inner.calls == 1, "a terminal failure must be attempted exactly once"
+    assert governed.state.retries == 0
+
+
+def test_a_transient_failure_is_still_retried() -> None:
+    """The guard must not disarm the retry loop it sits in front of: a timeout
+    or a 503 is worth another attempt."""
+    from toolkit.core.errors import AdapterError
+
+    class Flaky:
+        model_version = "flaky:1"
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, temperature=0.0, max_tokens=None):
+            from toolkit.core import Completion
+
+            self.calls += 1
+            if self.calls < 3:
+                raise AdapterError("connection reset")
+            return Completion(
+                text="{}", usage=Usage(input_tokens=1, output_tokens=1, cost_usd=0.1)
+            )
+
+    inner = Flaky()
+    governed = GovernedLLM(
+        inner, GovernorConfig(max_attempts=3, initial_backoff=0.0, jitter=0.0)
+    )
+    assert governed.complete([Message("user", "x")]).text == "{}"
+    assert inner.calls == 3
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 402])
+def test_every_configuration_failure_is_terminal(status) -> None:
+    """None of these improves on a retry: a wrong key stays wrong."""
+    from toolkit.core.errors import PermanentFailure
+
+    llm = HttpLLM(_deepseek(), transport=_transport_status(status, {}))
+    with pytest.raises(PermanentFailure):
+        llm.complete([Message("user", "hi")])
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_an_overload_is_not_terminal(status) -> None:
+    from toolkit.core.errors import RateLimited
+
+    llm = HttpLLM(_deepseek(), transport=_transport_status(status, {}))
+    with pytest.raises(RateLimited):
+        llm.complete([Message("user", "hi")])
+
+
+# --------------------------------------------------------------------------
+# Malaysian currency notation
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("RM1,234.50", "1234.50"),
+        ("RM 1,234.50", "1234.50"),
+        ("RM(310.00)", "-310.00"),
+        ("(RM310.00)", "-310.00"),
+        ("-RM310.00", "-310.00"),
+        # The marker before the sign, which is the ordering the bracket fix did
+        # not reach.
+        ("RM-310.00", "-310.00"),
+        ("(RM 310.00)", "-310.00"),
+        ("rm1234.5", "1234.5"),
+        ("RM 310", "310"),
+    ],
+)
+def test_malaysian_currency_notation(text, expected) -> None:
+    """Every form a Malaysian invoice actually writes. The marker may sit
+    outside or inside the brackets, before or after the sign."""
+    from decimal import Decimal
+
+    from toolkit.extraction import parse_decimal
+
+    assert parse_decimal(text) == Decimal(expected)
+
+
+@pytest.mark.parametrize("text", ["RM", "RM-", "RM()", "RMx1.00", "1,234.50RM-"])
+def test_notation_that_is_not_a_number_is_still_refused(text) -> None:
+    from toolkit.extraction import parse_decimal
+
+    assert parse_decimal(text) is None
