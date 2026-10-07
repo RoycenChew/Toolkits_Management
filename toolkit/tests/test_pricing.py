@@ -584,3 +584,46 @@ def test_notation_that_is_not_a_number_is_still_refused(text) -> None:
     from toolkit.extraction import parse_decimal
 
     assert parse_decimal(text) is None
+
+def test_an_answer_truncated_before_any_text_is_terminal() -> None:
+    """Measured on a scanned document at max_tokens=16000: the model spent the
+    whole budget reasoning and returned empty content with
+    `finish_reason=length`. The governor retried it three times.
+
+    At temperature 0 the same request produces the same result, so the retries
+    are waste - and worse, the retry wrapper hid the one actionable line
+    ("raise max_tokens") behind "giving up after 3 attempts".
+    """
+    from toolkit.core.errors import PermanentFailure
+
+    payload = {
+        "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 3000, "completion_tokens": 16000},
+        "model": "deepseek-flash",
+    }
+    llm = HttpLLM(_deepseek(), transport=_transport(payload))
+    with pytest.raises(PermanentFailure) as caught:
+        llm.complete([Message("user", "hi")])
+    assert "max_tokens" in str(caught.value)
+
+
+def test_the_governor_does_not_retry_a_truncated_answer() -> None:
+    from toolkit.core.errors import PermanentFailure
+
+    payload = {
+        "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 10},
+        "model": "deepseek-flash",
+    }
+    calls = {"n": 0}
+
+    def counting(url, headers, body, timeout):
+        calls["n"] += 1
+        return 200, json.dumps(payload)
+
+    governed = GovernedLLM(
+        HttpLLM(_deepseek(), transport=counting), GovernorConfig(max_attempts=3)
+    )
+    with pytest.raises(PermanentFailure):
+        governed.complete([Message("user", "x")])
+    assert calls["n"] == 1

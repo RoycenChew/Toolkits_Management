@@ -364,7 +364,12 @@ class HttpLLM:
         # A truncated answer that is returned as a success is the quietest way
         # for a pipeline to produce a wrong result, so it is an error here.
         if finish == "length" and not text.strip():
-            raise AdapterError(
+            # Terminal, not transient: at temperature 0 the same request
+            # produces the same truncation, so retrying wastes three calls and
+            # buries the one actionable line behind "giving up after 3
+            # attempts". Measured on a scanned document at max_tokens=16000,
+            # where a reasoning model spent the whole budget thinking.
+            raise PermanentFailure(
                 "%s truncated the answer before any text was produced "
                 "(finish_reason=length); raise max_tokens" % self.provider.label
             )
@@ -401,7 +406,7 @@ class HttpLLM:
             if isinstance(block, Mapping) and block.get("type") == "text"
         )
         if stop == "max_tokens" and not text.strip():
-            raise AdapterError(
+            raise PermanentFailure(
                 "%s truncated the answer before any text was produced "
                 "(stop_reason=max_tokens); raise max_tokens" % self.provider.label
             )
